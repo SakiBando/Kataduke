@@ -81,3 +81,6 @@ iOSInjectionProject/
 # Firebase config
 GoogleService-Info.plist
 GenerativeAI-Info.plist
+
+# Local notes
+private_docs/

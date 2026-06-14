@@ -8,6 +8,7 @@ class MusicViewModel: ObservableObject {
     @Published var songs: MusicItemCollection<Song> = []
     @Published var recommendedPlayLisits: MusicItemCollection<Playlist> = []
     @Published var localSongs: [MPMediaItem] = []
+    @Published var localPlaylists: [MPMediaPlaylist] = []
     @Published var canPlayCatalogContent: Bool = false
     @Published var authorizationStatus: MusicAuthorization.Status = .notDetermined
     
@@ -72,12 +73,10 @@ class MusicViewModel: ObservableObject {
 
     func fetchLocalSongs() async {
         let status = MPMediaLibrary.authorizationStatus()
-       // guard status == .authorized  else {
-            guard status == .authorized || status == .limited else {
-             let newStatus = await requestLocalLibraryAuthorization()
-            //guard newStatus == .authorized  else {
-                guard newStatus == .authorized || newStatus == .limited else {
-                  print("local music not authorized")
+        guard status == .authorized else {
+            let newStatus = await requestLocalLibraryAuthorization()
+            guard newStatus == .authorized else {
+                print("local music not authorized")
                 return
             }
             loadLocalSongs()
@@ -86,11 +85,33 @@ class MusicViewModel: ObservableObject {
         loadLocalSongs()
     }
 
+    func fetchLocalPlaylists() async {
+        let status = MPMediaLibrary.authorizationStatus()
+        guard status == .authorized else {
+            let newStatus = await requestLocalLibraryAuthorization()
+            guard newStatus == .authorized else {
+                print("local playlist not authorized")
+                return
+            }
+            loadLocalPlaylists()
+            return
+        }
+        loadLocalPlaylists()
+    }
+
     private func loadLocalSongs() {
         let query = MPMediaQuery.songs()
         let items = query.items ?? []
         DispatchQueue.main.async {
             self.localSongs = items
+        }
+    }
+
+    private func loadLocalPlaylists() {
+        let query = MPMediaQuery.playlists()
+        let collections = query.collections as? [MPMediaPlaylist] ?? []
+        DispatchQueue.main.async {
+            self.localPlaylists = collections
         }
     }
 
@@ -102,4 +123,3 @@ class MusicViewModel: ObservableObject {
         }
     }
 }
-

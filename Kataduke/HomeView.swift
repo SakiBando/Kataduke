@@ -19,9 +19,20 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading) {
                     let allPlaylistSongs = viewModel.recommendedPlayLisits.flatMap { Array($0.tracks ?? []) }
+                    let allLocalPlaylistSongs = viewModel.localPlaylists.flatMap { $0.items }
+                    let resumeAppleSong = draftSessions.first.flatMap { draft in
+                        allPlaylistSongs.first(where: { $0.id.rawValue == draft.songIDRawValue })
+                    }
+                    let resumeLocalSong = draftSessions.first.flatMap { draft in
+                        allLocalPlaylistSongs.first(where: { String($0.persistentID) == draft.songIDRawValue })
+                    }
                     
                     if let draft = draftSessions.first,
-                       let song = allPlaylistSongs.first(where: { $0.id.rawValue == draft.songIDRawValue }) {
+                       let playbackSource = resumePlaybackSource(
+                        draft: draft,
+                        appleSong: resumeAppleSong,
+                        localSong: resumeLocalSong
+                       ) {
                         Button {
                             resumeDraft = draft
                             resumeBeforeImageData = draft.beforeImageData
@@ -52,7 +63,7 @@ struct HomeView: View {
                             CleaningView(
                                 beforeImage: $beforeImage,
                                 afterImage: $afterImage,
-                                playbackSource: .appleMusic([song]),
+                                playbackSource: playbackSource,
                                 initialSecondsElapsed: resumeDraft?.elapsedTime ?? 0,
                                 isResumeMode: true
                             ) {
@@ -97,27 +108,33 @@ struct HomeView: View {
                             .padding()
                         }
                     } else {
-                        Text("ローカルライブラリ")
+                        Text("ローカルプレイリスト")
                             .font(.headline)
                         ScrollView(.horizontal) {
                             LazyHStack(alignment: .top) {
-                                if viewModel.localSongs.isEmpty {
-                                    Text("Empty Library")
+                                if viewModel.localPlaylists.isEmpty {
+                                    Text("Empty Playlist")
                                 } else {
-                                    ForEach(viewModel.localSongs, id: \.persistentID) { item in
+                                    ForEach(viewModel.localPlaylists, id: \.persistentID) { playlist in
                                         NavigationLink {
                                             PhotobeforeView(
                                                 beforeImage: $beforeImage,
                                                 afterImage: $afterImage,
-                                                playbackSource: .local([item])
+                                                playbackSource: .local(playlist.items)
                                             )
                                         } label: {
+                                            let playlistName = {
+                                                guard let name = playlist.name, !name.isEmpty else {
+                                                    return "Unknown Playlist"
+                                                }
+                                                return name
+                                            }()
                                             VStack(alignment: .leading) {
-                                                Text(item.title ?? "Unknown")
+                                                Text(playlistName)
                                                     .font(.headline)
                                                     .frame(width: 100)
                                                     .lineLimit(1)
-                                                Text(item.artist ?? "")
+                                                Text("\(playlist.count)曲")
                                                     .font(.caption)
                                             }
                                         }
@@ -135,9 +152,9 @@ struct HomeView: View {
                         await viewModel.authorize()
                         let canPlayCatalogContent = await viewModel.fetchSubscriptionStatus()
                         if canPlayCatalogContent {
-                            try await viewModel.fetchRecommendedPlaylists()
+                            await viewModel.fetchRecommendedPlaylists()
                         } else {
-                            await viewModel.fetchLocalSongs()
+                            await viewModel.fetchLocalPlaylists()
                         }
                     }
                 }
@@ -172,6 +189,21 @@ struct HomeView: View {
         }
         resumeDraft = nil
         resumeBeforeImageData = nil
+    }
+
+    private func resumePlaybackSource(
+        draft: DraftCleaningSession,
+        appleSong: Track?,
+        localSong: MPMediaItem?
+    ) -> PlaybackSource? {
+        if let appleSong {
+            return .appleMusic([appleSong])
+        }
+        if let localSong {
+            return .local([localSong])
+        }
+        print("[HomeView] no matching draft song found for \(draft.songIDRawValue)")
+        return nil
     }
 }
 #Preview {
