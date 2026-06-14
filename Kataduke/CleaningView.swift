@@ -17,6 +17,7 @@ struct CleaningView: View{
     let playbackSource: PlaybackSource
     let initialSecondsElapsed: Double
     let isResumeMode: Bool
+    var onCompleteCleaning: (Double, [PlayedTrackInfo]) -> Void
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) private var context
     @State private var timer: Timer!
@@ -24,7 +25,6 @@ struct CleaningView: View{
     @State private var isRunning = false
     @State private var isSongPrepared: Bool
     @State private var isShowAlert = false
-    @State private var isShowResult = false
     @State private var playedTracks: [PlayedTrackInfo] = []
     @State private var playedTrackIDs: Set<String> = []
     
@@ -34,6 +34,7 @@ struct CleaningView: View{
         playbackSource: PlaybackSource,
         initialSecondsElapsed: Double = 0,
         isResumeMode: Bool = false,
+        onCompleteCleaning: @escaping (Double, [PlayedTrackInfo]) -> Void,
         onFinishFlow: @escaping () -> Void
     ) {
         self._beforeImage = beforeImage
@@ -41,6 +42,7 @@ struct CleaningView: View{
         self.playbackSource = playbackSource
         self.initialSecondsElapsed = initialSecondsElapsed
         self.isResumeMode = isResumeMode
+        self.onCompleteCleaning = onCompleteCleaning
         self.onFinishFlow = onFinishFlow
         self._secondsElapsed = State(initialValue: initialSecondsElapsed)
         self._isSongPrepared = State(initialValue: isResumeMode)
@@ -104,37 +106,19 @@ struct CleaningView: View{
                     }
                 }
                 Button("完了") {
-                    stop()
-                    isShowResult = true
+                    let completedSecondsElapsed = secondsElapsed
+                    stop(resetElapsed: false)
+                    onCompleteCleaning(completedSecondsElapsed, playedTracks)
                 }
             }
-            
-            //.navigationDestination(isPresented: $isShowResult){
-            //PhotoafterView()
-            .navigationDestination(isPresented: $isShowResult) {
-                PhotoafterView(
-                    secondsElapsed: secondsElapsed,
-                    beforeImage: $beforeImage,
-                    afterImage: $afterImage,
-                    playedTracks: playedTracks,
-                    onFinishFlow: onFinishFlow
-                )
-            }
-
-            
-            }
+        }
             .onAppear {
                 print("[CleaningView] onAppear. before image exists: \(beforeImage != nil)")
                 if isResumeMode {
                     isSongPrepared = true
                 }
             }
-            
         }
-    
-    //                NavigationLink("", isActive: $isShowResult) {
-    //                    ResultView()
-    //                }
     
     func start() {
         print("[CleaningView] start timer")
@@ -153,17 +137,15 @@ struct CleaningView: View{
         pauseSelectedSong()
     }
     
-    func stop() {
+    func stop(resetElapsed: Bool = true) {
         print("[CleaningView] stop timer at \(secondsElapsed)")
         timer.invalidate()
         isRunning = false
         stopSelectedSong()
         isSongPrepared = false
-        let saveTime: Double
-        saveTime = secondsElapsed
-        UserDefaults.standard.set(saveTime, forKey: "saki-chan")
-        
-        secondsElapsed = 0.0
+        if resetElapsed {
+            secondsElapsed = 0.0
+        }
     }
     
     @MainActor

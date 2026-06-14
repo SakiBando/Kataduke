@@ -6,13 +6,9 @@ import MediaPlayer
 
 struct HomeView: View {
     @StateObject private var viewModel = MusicViewModel(musicService: MusicServiceImpl())
-    @State private var beforeImage: UIImage?
-    @State private var afterImage: UIImage?
+    @State private var activeFlowPresentation: CleaningFlowPresentation?
     @Environment(\.modelContext) private var context
     @Query(sort: \DraftCleaningSession.updatedAt, order: .reverse) private var draftSessions: [DraftCleaningSession]
-    @State private var resumeDraft: DraftCleaningSession?
-    @State private var resumeBeforeImageData: Data?
-    @State private var isShowingResume = false
     
     var body: some View {
         NavigationStack {
@@ -34,11 +30,13 @@ struct HomeView: View {
                         localSong: resumeLocalSong
                        ) {
                         Button {
-                            resumeDraft = draft
-                            resumeBeforeImageData = draft.beforeImageData
-                            beforeImage = draft.beforeImageData.flatMap(UIImage.init(data:))
-                            afterImage = nil
-                            isShowingResume = true
+                            activeFlowPresentation = CleaningFlowPresentation(
+                                playbackSource: playbackSource,
+                                initialBeforeImage: draft.beforeImageData.flatMap(UIImage.init(data:)),
+                                initialSecondsElapsed: draft.elapsedTime,
+                                isResumeMode: true,
+                                completionAction: .clearLatestDraft
+                            )
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -59,18 +57,6 @@ struct HomeView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
-                        .fullScreenCover(isPresented: $isShowingResume) {
-                            CleaningView(
-                                beforeImage: $beforeImage,
-                                afterImage: $afterImage,
-                                playbackSource: playbackSource,
-                                initialSecondsElapsed: resumeDraft?.elapsedTime ?? 0,
-                                isResumeMode: true
-                            ) {
-                                clearDraft()
-                                isShowingResume = false
-                            }
-                        }
                     }
                     
                     if viewModel.canPlayCatalogContent {
@@ -82,11 +68,13 @@ struct HomeView: View {
                                     Text("Empty Playlist")
                                 } else {
                                     ForEach(Array(viewModel.recommendedPlayLisits)) { playlist in
-                                        NavigationLink {
-                                            PhotobeforeView(
-                                                beforeImage: $beforeImage,
-                                                afterImage: $afterImage,
-                                                playbackSource: .appleMusic(Array(playlist.tracks ?? []))
+                                        Button {
+                                            activeFlowPresentation = CleaningFlowPresentation(
+                                                playbackSource: .appleMusic(Array(playlist.tracks ?? [])),
+                                                initialBeforeImage: nil,
+                                                initialSecondsElapsed: 0,
+                                                isResumeMode: false,
+                                                completionAction: .none
                                             )
                                         } label: {
                                             VStack(alignment: .leading) {
@@ -116,11 +104,13 @@ struct HomeView: View {
                                     Text("Empty Playlist")
                                 } else {
                                     ForEach(viewModel.localPlaylists, id: \.persistentID) { playlist in
-                                        NavigationLink {
-                                            PhotobeforeView(
-                                                beforeImage: $beforeImage,
-                                                afterImage: $afterImage,
-                                                playbackSource: .local(playlist.items)
+                                        Button {
+                                            activeFlowPresentation = CleaningFlowPresentation(
+                                                playbackSource: .local(playlist.items),
+                                                initialBeforeImage: nil,
+                                                initialSecondsElapsed: 0,
+                                                isResumeMode: false,
+                                                completionAction: .none
                                             )
                                         } label: {
                                             let playlistName = {
@@ -158,6 +148,16 @@ struct HomeView: View {
                         }
                     }
                 }
+                .fullScreenCover(item: $activeFlowPresentation, onDismiss: clearActiveFlowPresentation) { presentation in
+                    CleaningSessionFlowView(
+                        playbackSource: presentation.playbackSource,
+                        initialBeforeImage: presentation.initialBeforeImage,
+                        initialSecondsElapsed: presentation.initialSecondsElapsed,
+                        isResumeMode: presentation.isResumeMode
+                    ) {
+                        handleFlowFinished(action: presentation.completionAction)
+                    }
+                }
                 Button{
                     
                 } label: {
@@ -183,12 +183,10 @@ struct HomeView: View {
     }
 
     private func clearDraft() {
-        if let draft = resumeDraft ?? draftSessions.first {
+        if let draft = draftSessions.first {
             context.delete(draft)
             print("[HomeView] draft cleared")
         }
-        resumeDraft = nil
-        resumeBeforeImageData = nil
     }
 
     private func resumePlaybackSource(
@@ -204,6 +202,19 @@ struct HomeView: View {
         }
         print("[HomeView] no matching draft song found for \(draft.songIDRawValue)")
         return nil
+    }
+
+    private func clearActiveFlowPresentation() {
+        activeFlowPresentation = nil
+    }
+
+    private func handleFlowFinished(action: CleaningFlowCompletionAction) {
+        switch action {
+        case .none:
+            break
+        case .clearLatestDraft:
+            clearDraft()
+        }
     }
 }
 #Preview {

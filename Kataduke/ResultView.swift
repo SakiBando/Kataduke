@@ -49,9 +49,6 @@ struct ResultView: View {
                     Text("共有せずに保存")
                 }
             }
-            .onAppear() {
-                fetchTimer()
-            }
             .task {
                 await evaluateCleanupIfNeeded()
             }
@@ -178,10 +175,6 @@ struct ResultView: View {
         print("[ResultView] save complete. Returning HomeView")
         onFinishFlow()
     }
-    
-    func fetchTimer() {
-            resultTimer = UserDefaults.standard.double(forKey: "saki-chan")
-        }
     
     @MainActor
     private func evaluateCleanupIfNeeded() async {
