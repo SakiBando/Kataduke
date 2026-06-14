@@ -16,6 +16,7 @@ struct ResultView: View {
     @State var resultTimer: Double
     @Binding var beforeImage: UIImage?
     @Binding var afterImage: UIImage?
+    let playedTracks: [PlayedTrackInfo]
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) var context
     @State private var evaluation: CleanupEvaluation?
@@ -34,6 +35,7 @@ struct ResultView: View {
                 .padding(.vertical, 12)
                 
                 evaluationSection
+                playedTracksSection
                 
                 Button{
                     saveImage()
@@ -59,6 +61,36 @@ struct ResultView: View {
                 
             }
         }
+    }
+
+    @ViewBuilder
+    private var playedTracksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("再生した曲")
+                .font(.headline)
+
+            if playedTracks.isEmpty {
+                Text("曲がありません")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(playedTracks) { track in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(track.title)
+                            .fontWeight(.semibold)
+                        if !track.artistName.isEmpty {
+                            Text(track.artistName)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
     
     private func scoreRow(title: String, score: Int) -> some View {
@@ -130,19 +162,21 @@ struct ResultView: View {
             return
         }
         let beforeImageData = beforeImage?.jpegData(compressionQuality: 0.8)
-                let afterImageData = afterImage?.jpegData(compressionQuality: 0.8)
-                let record = SelectedImage(
-                    elapsedTime: resultTimer,
-                    beforeImageData: beforeImageData,
-                    afterImageData: afterImageData,
-                    beforeTidinessScore: evaluation?.clampedBeforeScore,
-                    afterTidinessScore: evaluation?.clampedAfterScore,
-                    improvementScore: evaluation?.improvementScore
-                )
-                context.insert(record)
-                
-                print("[ResultView] save complete. Returning HomeView")
-                onFinishFlow()
+        let afterImageData = afterImage?.jpegData(compressionQuality: 0.8)
+        let playedTracksData = try? JSONEncoder().encode(playedTracks)
+        let record = SelectedImage(
+            elapsedTime: resultTimer,
+            beforeImageData: beforeImageData,
+            afterImageData: afterImageData,
+            playedTracksData: playedTracksData,
+            beforeTidinessScore: evaluation?.clampedBeforeScore,
+            afterTidinessScore: evaluation?.clampedAfterScore,
+            improvementScore: evaluation?.improvementScore
+        )
+        context.insert(record)
+        
+        print("[ResultView] save complete. Returning HomeView")
+        onFinishFlow()
     }
     
     func fetchTimer() {

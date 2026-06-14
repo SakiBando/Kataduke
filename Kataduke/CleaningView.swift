@@ -25,6 +25,8 @@ struct CleaningView: View{
     @State private var isSongPrepared: Bool
     @State private var isShowAlert = false
     @State private var isShowResult = false
+    @State private var playedTracks: [PlayedTrackInfo] = []
+    @State private var playedTrackIDs: Set<String> = []
     
     init(
         beforeImage: Binding<UIImage?>,
@@ -114,6 +116,7 @@ struct CleaningView: View{
                     secondsElapsed: secondsElapsed,
                     beforeImage: $beforeImage,
                     afterImage: $afterImage,
+                    playedTracks: playedTracks,
                     onFinishFlow: onFinishFlow
                 )
             }
@@ -135,7 +138,10 @@ struct CleaningView: View{
     
     func start() {
         print("[CleaningView] start timer")
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {_ in secondsElapsed += 0.1}
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            secondsElapsed += 0.1
+            recordCurrentTrack()
+        }
         isRunning = true
         playOrResumeSelectedSong()
     }
@@ -241,6 +247,7 @@ struct CleaningView: View{
             let player = ApplicationMusicPlayer.shared
             player.queue = .init(for: tracks)
             try? await player.play()
+            recordCurrentTrack()
         case .local(let items):
             guard !items.isEmpty else {
                 print("[CleaningView] no local tracks available")
@@ -250,6 +257,7 @@ struct CleaningView: View{
             player.setQueue(with: MPMediaItemCollection(items: items))
             player.repeatMode = .all
             player.play()
+            recordCurrentTrack()
         }
     }
 
@@ -258,8 +266,51 @@ struct CleaningView: View{
         switch playbackSource {
         case .appleMusic:
             try? await ApplicationMusicPlayer.shared.play()
+            recordCurrentTrack()
         case .local:
             MPMusicPlayerController.applicationQueuePlayer.play()
+            recordCurrentTrack()
         }
+    }
+
+    private func recordCurrentTrack() {
+        switch playbackSource {
+        case .appleMusic:
+            recordAppleMusicTrack()
+        case .local:
+            recordLocalTrack()
+        }
+    }
+
+    private func recordAppleMusicTrack() {
+        guard let track = ApplicationMusicPlayer.shared.queue.currentEntry?.item as? Track else {
+            return
+        }
+        appendPlayedTrackIfNeeded(
+            PlayedTrackInfo(
+                id: track.id.rawValue,
+                title: track.title,
+                artistName: track.artistName
+            )
+        )
+    }
+
+    private func recordLocalTrack() {
+        guard let item = MPMusicPlayerController.applicationQueuePlayer.nowPlayingItem else {
+            return
+        }
+        appendPlayedTrackIfNeeded(
+            PlayedTrackInfo(
+                id: String(item.persistentID),
+                title: item.title ?? "Unknown",
+                artistName: item.artist ?? ""
+            )
+        )
+    }
+
+    private func appendPlayedTrackIfNeeded(_ track: PlayedTrackInfo) {
+        guard playedTrackIDs.contains(track.id) == false else { return }
+        playedTrackIDs.insert(track.id)
+        playedTracks.append(track)
     }
 }

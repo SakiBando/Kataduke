@@ -62,6 +62,7 @@ private struct MemoryDetailView: View {
                 }
                 
                 scoreSummarySection
+                playedTracksSection
                 
                 comparisonCard
                 
@@ -97,6 +98,36 @@ private struct MemoryDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
+
+    @ViewBuilder
+    private var playedTracksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("再生した曲")
+                .font(.headline)
+
+            if memory.playedTracks.isEmpty {
+                Text("曲がありません")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(memory.playedTracks) { track in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(track.title)
+                            .fontWeight(.semibold)
+                        if !track.artistName.isEmpty {
+                            Text(track.artistName)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
     
     private var comparisonCard: some View {
         VStack(alignment: .leading, spacing: 18) {

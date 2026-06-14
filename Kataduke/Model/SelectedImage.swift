@@ -13,6 +13,7 @@ final class SelectedImage {
     var elapsedTime: Double
     var beforeImageData: Data?
     var afterImageData: Data?
+    var playedTracksData: Data?
     var beforeTidinessScore: Int?
     var afterTidinessScore: Int?
     var improvementScore: Int?
@@ -22,6 +23,7 @@ final class SelectedImage {
         elapsedTime: Double,
         beforeImageData: Data?,
         afterImageData: Data?,
+        playedTracksData: Data? = nil,
         beforeTidinessScore: Int? = nil,
         afterTidinessScore: Int? = nil,
         improvementScore: Int? = nil
@@ -30,9 +32,14 @@ final class SelectedImage {
         self.elapsedTime = elapsedTime
         self.beforeImageData = beforeImageData
         self.afterImageData = afterImageData
+        self.playedTracksData = playedTracksData
         self.beforeTidinessScore = beforeTidinessScore
         self.afterTidinessScore = afterTidinessScore
         self.improvementScore = improvementScore
     }
-}
 
+    var playedTracks: [PlayedTrackInfo] {
+        guard let playedTracksData else { return [] }
+        return (try? JSONDecoder().decode([PlayedTrackInfo].self, from: playedTracksData)) ?? []
+    }
+}

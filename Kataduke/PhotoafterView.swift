@@ -10,6 +10,7 @@ struct PhotoafterView: View {
     let secondsElapsed: Double
     @Binding var beforeImage: UIImage?
     @Binding var afterImage: UIImage?
+    let playedTracks: [PlayedTrackInfo]
     var onFinishFlow: () -> Void
     
     @Environment(\.dismiss) private var dismiss
@@ -30,6 +31,7 @@ struct PhotoafterView: View {
                     resultTimer: secondsElapsed,
                     beforeImage: $beforeImage,
                     afterImage: $afterImage,
+                    playedTracks: playedTracks,
                     onFinishFlow: onFinishFlow
                 )
             }
@@ -91,6 +93,7 @@ private struct AfterCameraPicker: UIViewControllerRepresentable {
         secondsElapsed: 0,
         beforeImage: .constant(nil),
         afterImage: .constant(nil),
+        playedTracks: [],
         onFinishFlow: {}
     )
 }
