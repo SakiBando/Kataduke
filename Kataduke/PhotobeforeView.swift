@@ -5,10 +5,13 @@
 ////  Created by Saki on 2026/01/12.
 ////
 import SwiftUI
+import MusicKit
+import MediaPlayer
 
 struct PhotobeforeView: View {
     @Binding var beforeImage: UIImage?
     @Binding var afterImage: UIImage?
+    let playbackSource: PlaybackSource
     @Environment(\.dismiss) private var dismiss
     
     @State private var showCamera = false
@@ -24,7 +27,11 @@ struct PhotobeforeView: View {
                 BeforeCameraPicker(image: $beforeImage)
             }
             .fullScreenCover(isPresented: $showCleaningView) {
-                CleaningView(beforeImage: $beforeImage, afterImage: $afterImage) {
+                CleaningView(
+                    beforeImage: $beforeImage,
+                    afterImage: $afterImage,
+                    playbackSource: playbackSource
+                ) {
                     showCleaningView = false
                     dismiss()
                 }
@@ -82,8 +89,4 @@ private struct BeforeCameraPicker: UIViewControllerRepresentable {
             parent.dismiss()
         }
     }
-}
-
-#Preview {
-    PhotobeforeView(beforeImage: .constant(nil), afterImage: .constant(nil))
 }

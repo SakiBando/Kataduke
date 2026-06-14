@@ -169,7 +169,7 @@ struct ResultView: View {
             print("[ResultView] evaluation finished: \(String(describing: evaluation))")
         } catch {
             evaluationError = error.localizedDescription
-            print("[ResultView] evaluation failed: \(error)")
+            print("[ResultView] evaluation failed: \(error.localizedDescription)")
         }
     }
 }

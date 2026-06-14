@@ -20,7 +20,13 @@ import FirebaseCore
 class AppDelegate: NSObject, UIApplicationDelegate {
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    FirebaseApp.configure()
+    if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+       let options = FirebaseOptions(contentsOfFile: path),
+       !(options.apiKey?.isEmpty ?? true) {
+        FirebaseApp.configure(options: options)
+    } else {
+        print("[Firebase] GoogleService-Info.plist is missing or invalid. Firebase will not be configured.")
+    }
 
     return true
   }
@@ -35,8 +41,7 @@ struct KatadukeApp: App {
         WindowGroup {
 //            CleaningView(image: $image)
             ContentView()
-                .modelContainer(for: [ResultItem.self, SelectedImage.self])
+                .modelContainer(for: [ResultItem.self, SelectedImage.self, DraftCleaningSession.self])
         }
     }
 }
-

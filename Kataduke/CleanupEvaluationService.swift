@@ -9,28 +9,10 @@
 import UIKit
 import GoogleGenerativeAI
 
-struct CleanupEvaluation: Decodable {
-    let beforeScore: Int
-    let afterScore: Int
-    
-    
-    var clampedBeforeScore: Int {
-        min(max(beforeScore, 0), 100)
-    }
-    
-    var clampedAfterScore: Int {
-        min(max(afterScore, 0), 100)
-    }
-    
-    var improvementScore: Int {
-        clampedAfterScore - clampedBeforeScore
-    }
-}
-
 enum CleanupEvaluationService {
     private static let candidateModelNames = [
-        "models/gemini-3.5-flash",
-        "models/gemini-2.5-flash"
+        "models/gemini-2.5-flash",
+        "models/gemini-2.5-flash-lite"
     ]
     
     static func evaluate(before beforeImage: UIImage, after afterImage: UIImage, elapsedTime: Double) async throws -> CleanupEvaluation {
@@ -43,8 +25,7 @@ enum CleanupEvaluationService {
         
         {
           "beforeScore": 0-100の整数,
-          "afterScore": 0-100の整数,
-
+          "afterScore": 0-100の整数
         }
         
         経過時間(秒): \(Int(elapsedTime.rounded()))
@@ -63,6 +44,7 @@ enum CleanupEvaluationService {
                 }
                 return try parseEvaluation(from: text)
             } catch {
+                print("[CleanupEvaluationService] \(modelName) failed: \(error)")
                 lastError = error
             }
         }
