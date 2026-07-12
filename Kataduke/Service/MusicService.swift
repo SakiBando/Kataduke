@@ -3,8 +3,7 @@ import MusicKit
 
 protocol MusicService {
     func fetchSongs() async throws -> MusicItemCollection<Song>
-    // ⭐️ 追加：おすすめプレイリスト取得
-    func fetchRecommendedPlaylist() async throws -> MusicItemCollection<Playlist>
+    func fetchLibraryPlaylists() async throws -> MusicItemCollection<Playlist>
 }
 
 
@@ -20,28 +19,17 @@ class MusicServiceImpl: MusicService {
         }
     }
     
-    func fetchRecommendedPlaylist() async throws -> MusicItemCollection<Playlist> {
-           do {
-               let request = MusicPersonalRecommendationsRequest()
-               let response = try await request.response()
-               
-               // recommendationの中からplaylistsだけ集める
-               var playlists: [Playlist] = []
-               
-               for recommendation in response.recommendations {
-                   
-                   playlists.append(contentsOf: recommendation.playlists)
-                   print("タイトル：", recommendation.title ?? "")
-                   print("プレイリスト数：", recommendation.playlists.count)
-               }
-               
-               return MusicItemCollection(playlists)
-               
-           } catch {
-               print("Fetching recommendations failed:", error)
-               throw error
-           }
-       }
-}
+    func fetchLibraryPlaylists() async throws -> MusicItemCollection<Playlist> {
+        var request = MusicLibraryRequest<Playlist>()
+        request.limit = 100
+        let response = try await request.response()
 
+        var playlistsWithTracks: [Playlist] = []
+        for playlist in response.items {
+            let detailedPlaylist = try await playlist.with(.tracks)
+            playlistsWithTracks.append(detailedPlaylist)
+        }
+        return MusicItemCollection(playlistsWithTracks)
+    }
+}
 

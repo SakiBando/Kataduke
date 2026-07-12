@@ -17,26 +17,15 @@ import FirebaseCore
     //}
 //}
 
-class AppDelegate: NSObject, UIApplicationDelegate {
-  func application(_ application: UIApplication,
-                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-       let options = FirebaseOptions(contentsOfFile: path),
-       !(options.apiKey?.isEmpty ?? true) {
-        FirebaseApp.configure(options: options)
-    } else {
-        print("[Firebase] GoogleService-Info.plist is missing or invalid. Firebase will not be configured.")
-    }
-
-    return true
-  }
-}
-
 @main
 struct KatadukeApp: App {
     @State private var image: UIImage? = nil
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var authViewModel: AuthViewModel
+
+    init() {
+        FirebaseApp.configure()
+        _authViewModel = StateObject(wrappedValue: AuthViewModel())
+    }
 
     var body: some Scene {
         WindowGroup {

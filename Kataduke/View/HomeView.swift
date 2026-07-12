@@ -18,7 +18,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading) {
-                    let allPlaylistSongs = viewModel.recommendedPlayLisits.flatMap { Array($0.tracks ?? []) }
+                    let allPlaylistSongs = viewModel.appleMusicPlaylists.flatMap { Array($0.tracks ?? []) }
                     let allLocalPlaylistSongs = viewModel.localPlaylists.flatMap { $0.items }
                     let resumeAppleSong = draftSessions.first.flatMap { draft in
                         allPlaylistSongs.first(where: { $0.id.rawValue == draft.songIDRawValue })
@@ -60,10 +60,9 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .fullScreenCover(isPresented: $isShowingResume) {
-                            CleaningView(
-                                beforeImage: $beforeImage,
-                                afterImage: $afterImage,
+                            CleaningSessionFlowView(
                                 playbackSource: playbackSource,
+                                initialBeforeImage: resumeBeforeImageData.flatMap(UIImage.init(data:)),
                                 initialSecondsElapsed: resumeDraft?.elapsedTime ?? 0,
                                 isResumeMode: true
                             ) {
@@ -78,10 +77,10 @@ struct HomeView: View {
                             .font(.headline)
                         ScrollView(.horizontal) {
                             LazyHStack(alignment: .top) {
-                                if viewModel.recommendedPlayLisits.isEmpty {
+                                if viewModel.appleMusicPlaylists.isEmpty {
                                     Text("Empty Playlist")
                                 } else {
-                                    ForEach(Array(viewModel.recommendedPlayLisits)) { playlist in
+                                    ForEach(Array(viewModel.appleMusicPlaylists)) { playlist in
                                         NavigationLink {
                                             PhotobeforeView(
                                                 beforeImage: $beforeImage,
@@ -89,17 +88,17 @@ struct HomeView: View {
                                                 playbackSource: .appleMusic(Array(playlist.tracks ?? []))
                                             )
                                         } label: {
-                                            VStack(alignment: .leading) {
-                                                VStack(alignment: .leading) {
-                                                    Text(playlist.name)
-                                                        .font(.headline)
-                                                        .frame(width: 100)
-                                                        .lineLimit(1)
-                                                    Text("プレイリスト")
-                                                        .font(.caption)
-                                                }
+                                            VStack(alignment: .leading, spacing: 8) {
+                                                playlistArtwork(for: playlist)
+                                                Text(playlist.name)
+                                                    .font(.headline)
+                                                    .foregroundStyle(.primary)
+                                                    .frame(width: 150, alignment: .leading)
+                                                    .lineLimit(2)
+                                                Text("\(playlist.tracks?.count ?? 0)曲")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
                                             }
-                                            .padding(.horizontal, 5)
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -129,13 +128,16 @@ struct HomeView: View {
                                                 }
                                                 return name
                                             }()
-                                            VStack(alignment: .leading) {
+                                            VStack(alignment: .leading, spacing: 8) {
+                                                localPlaylistArtwork(for: playlist)
                                                 Text(playlistName)
                                                     .font(.headline)
-                                                    .frame(width: 100)
-                                                    .lineLimit(1)
+                                                    .foregroundStyle(.primary)
+                                                    .frame(width: 150, alignment: .leading)
+                                                    .lineLimit(2)
                                                 Text("\(playlist.count)曲")
                                                     .font(.caption)
+                                                    .foregroundStyle(.secondary)
                                             }
                                         }
                                         .buttonStyle(.plain)
@@ -152,7 +154,7 @@ struct HomeView: View {
                         await viewModel.authorize()
                         let canPlayCatalogContent = await viewModel.fetchSubscriptionStatus()
                         if canPlayCatalogContent {
-                            await viewModel.fetchRecommendedPlaylists()
+                            await viewModel.fetchAppleMusicPlaylists()
                         } else {
                             await viewModel.fetchLocalPlaylists()
                         }
@@ -189,6 +191,57 @@ struct HomeView: View {
         }
         resumeDraft = nil
         resumeBeforeImageData = nil
+    }
+
+    @ViewBuilder
+    private func playlistArtwork(for playlist: Playlist) -> some View {
+        if let artworkURL = playlist.artwork?.url(width: 300, height: 300) {
+            AsyncImage(url: artworkURL) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                ProgressView()
+            }
+            .frame(width: 150, height: 150)
+            .background(Color.gray.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        } else {
+            ZStack {
+                Color.gray.opacity(0.12)
+                Image(systemName: "music.note.list")
+                    .font(.system(size: 42))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 150, height: 150)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    @ViewBuilder
+    private func localPlaylistArtwork(for playlist: MPMediaPlaylist) -> some View {
+        if let artwork = playlist.representativeItem?.artwork,
+           let image = artwork.image(at: CGSize(width: 300, height: 300)) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 150, height: 150)
+                .background(Color.gray.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+        } else {
+            playlistArtworkPlaceholder
+        }
+    }
+
+    private var playlistArtworkPlaceholder: some View {
+        ZStack {
+            Color.gray.opacity(0.12)
+            Image(systemName: "music.note.list")
+                .font(.system(size: 42))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 150, height: 150)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     private func resumePlaybackSource(

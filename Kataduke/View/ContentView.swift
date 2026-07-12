@@ -28,17 +28,7 @@ struct ContentView: View {
             }
             Tab("ACCOUNT", systemImage: "person.circle") {
                 NavigationStack {
-                    VStack(spacing: 16) {
-                        if let user = authViewModel.user?.email {
-                            Text(user)
-                                .font(.headline)
-                        }
-                        Button("ログアウト") {
-                            authViewModel.signOut()
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding()
+                    AccountView()
                 }
             }
         }

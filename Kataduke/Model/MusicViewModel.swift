@@ -6,7 +6,7 @@ class MusicViewModel: ObservableObject {
     private let musicService: MusicService
     
     @Published var songs: MusicItemCollection<Song> = []
-    @Published var recommendedPlayLisits: MusicItemCollection<Playlist> = []
+    @Published var appleMusicPlaylists: MusicItemCollection<Playlist> = []
     @Published var localSongs: [MPMediaItem] = []
     @Published var localPlaylists: [MPMediaPlaylist] = []
     @Published var canPlayCatalogContent: Bool = false
@@ -55,16 +55,16 @@ class MusicViewModel: ObservableObject {
         }
     }
 
-    func fetchRecommendedPlaylists() async {
+    func fetchAppleMusicPlaylists() async {
         guard authorizationStatus == .authorized else {
             print("not authorized")
             return
         }
         
         do {
-            let result = try await musicService.fetchRecommendedPlaylist()
+            let result = try await musicService.fetchLibraryPlaylists()
             DispatchQueue.main.async {
-                self.recommendedPlayLisits = result
+                self.appleMusicPlaylists = result
             }
         } catch {
             print(error)
