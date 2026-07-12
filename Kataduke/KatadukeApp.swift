@@ -36,11 +36,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct KatadukeApp: App {
     @State private var image: UIImage? = nil
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var authViewModel = AuthViewModel()
 
     var body: some Scene {
         WindowGroup {
 //            CleaningView(image: $image)
-            ContentView()
+            RootView()
+                .environmentObject(authViewModel)
                 .modelContainer(for: [ResultItem.self, SelectedImage.self, DraftCleaningSession.self])
         }
     }

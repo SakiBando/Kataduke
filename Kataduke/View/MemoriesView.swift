@@ -10,6 +10,9 @@ import SwiftData
 
 struct MemoriesView: View {
     @Query(sort: \SelectedImage.createdAt, order: .reverse) var memories: [SelectedImage]
+    @Environment(\.modelContext) private var context
+    @State private var memoryToDelete: SelectedImage?
+    @State private var showDeleteAlert = false
     
     var body: some View {
         NavigationStack {
@@ -17,17 +20,45 @@ struct MemoriesView: View {
                 if memories.isEmpty {
                     ContentUnavailableView("まだ記録はありません", systemImage: "photo.on.rectangle")
                 } else {
-                    List(memories, id: \.persistentModelID) { memory in
-                        NavigationLink {
-                            MemoryDetailView(memory: memory)
-                        } label: {
-                            MemoryRowView(memory: memory)
+                    List {
+                        ForEach(memories, id: \.persistentModelID) { memory in
+                            NavigationLink {
+                                MemoryDetailView(memory: memory)
+                            } label: {
+                                MemoryRowView(memory: memory)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    memoryToDelete = memory
+                                    showDeleteAlert = true
+                                } label: {
+                                    Label("削除", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("これまでの記録")
+            .alert("記録を削除しますか？", isPresented: $showDeleteAlert) {
+                Button("キャンセル", role: .cancel) {
+                    memoryToDelete = nil
+                }
+                Button("削除", role: .destructive) {
+                    if let memoryToDelete {
+                        delete(memoryToDelete)
+                    }
+                    memoryToDelete = nil
+                }
+            } message: {
+                Text("この操作は取り消せません。")
+            }
         }
+    }
+    
+    private func delete(_ memory: SelectedImage) {
+        context.delete(memory)
+        print("[MemoriesView] deleted memory: \(memory.createdAt)")
     }
 }
 

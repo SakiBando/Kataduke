@@ -53,6 +53,22 @@ struct CleaningView: View{
         
         NavigationStack {
             VStack {
+                VStack(spacing: 4) {
+                    Text("再生中")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(currentTrackTitle)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                    if let artistName = currentTrackArtistName {
+                        Text(artistName)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.bottom, 12)
+
                 Text(String(format: "%.2f",secondsElapsed)).font(.title)
                 HStack {
                     if isRunning {
@@ -294,5 +310,23 @@ struct CleaningView: View{
         guard playedTrackIDs.contains(track.id) == false else { return }
         playedTrackIDs.insert(track.id)
         playedTracks.append(track)
+    }
+
+    private var currentTrackTitle: String {
+        switch playbackSource {
+        case .appleMusic(let tracks):
+            return tracks.first?.title ?? "曲名がありません"
+        case .local(let items):
+            return items.first?.title ?? "曲名がありません"
+        }
+    }
+
+    private var currentTrackArtistName: String? {
+        switch playbackSource {
+        case .appleMusic(let tracks):
+            return tracks.first?.artistName
+        case .local(let items):
+            return items.first?.artist
+        }
     }
 }
