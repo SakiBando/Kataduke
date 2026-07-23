@@ -20,11 +20,12 @@ struct CleaningView: View{
     var onCompleteCleaning: (Double, [PlayedTrackInfo]) -> Void
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) private var context
-    @State private var timer: Timer!
+    @State private var timer: Timer?
     @State private var secondsElapsed: Double
     @State private var isRunning = false
     @State private var isSongPrepared: Bool
     @State private var isShowAlert = false
+    @State private var volume: Double = 0.58
     @State private var playedTracks: [PlayedTrackInfo] = []
     @State private var playedTrackIDs: Set<String> = []
     
@@ -52,81 +53,105 @@ struct CleaningView: View{
     var body: some View {
         
         NavigationStack {
-            VStack {
-                VStack(spacing: 4) {
-                    Text("再生中")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(currentTrackTitle)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                    if let artistName = currentTrackArtistName {
-                        Text(artistName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(.bottom, 12)
-
-                Text(String(format: "%.2f",secondsElapsed)).font(.title)
+            VStack(spacing: 0) {
                 HStack {
-                    if isRunning {
-                        Button{
-                            pause()
-                        } label: {
-                            Image(systemName: "pause.fill")
-                                .foregroundColor(.white)
-                                .font(.title)
-                                .padding()
-                                .background(Color.orange)
-                                .clipShape(.circle)
-                            
-                        }
-                        
-                    }else{
-                        Button{
-                            start()
-                        } label: {
-                            Image(systemName: "play.fill")
-                                .foregroundColor(.white)
-                                .font(.title)
-                                .padding()
-                                .background(Color.green)
-                                .clipShape(.circle)
-                        }
-                    }
-                    if secondsElapsed != 0.0{
-                        Button{
-                            stop()
-                        } label: {
-                            Image(systemName: "stop.fill")
-                                .foregroundColor(.white)
-                                .font(.title)
-                                .padding()
-                                .background(Color.red)
-                                .clipShape(.circle)
-                        }
-                    }
-                    
-                }
-                Button("仮保存") {
-                    isShowAlert.toggle()
-                }
-                .alert("仮保存しますか", isPresented: $isShowAlert) {
-                    Button("戻る"){}
-                    Button("仮保存する"){
-                        saveDraft()
+                    Button {
                         pause()
                         onFinishFlow()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 34, weight: .regular))
+                            .foregroundStyle(.primary)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 10)
+                .padding(.horizontal, 26)
+
+                Spacer(minLength: 8)
+
+                VStack(spacing: 4) {
+                    Text(currentTrackTitle)
+                        .font(.system(size: 23, weight: .bold))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                    if let artistName = currentTrackArtistName {
+                        Text(artistName)
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
                     }
                 }
-                Button("完了") {
-                    let completedSecondsElapsed = secondsElapsed
-                    stop(resetElapsed: false)
-                    onCompleteCleaning(completedSecondsElapsed, playedTracks)
+                .padding(.horizontal, 34)
+
+                timerRing
+                    .padding(.top, 10)
+
+                Spacer(minLength: 18)
+
+                HStack(spacing: 38) {
+                    Button {
+                        skipToPrevious()
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(.primary)
+                    }
+
+                    Button {
+                        isRunning ? pause() : start()
+                    } label: {
+                        Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 70, height: 70)
+                            .background(cleaningOrange)
+                            .clipShape(Circle())
+                    }
+
+                    Button {
+                        skipToNext()
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(.primary)
+                    }
                 }
+                .buttonStyle(.plain)
+
+                volumeControl
+                    .padding(.top, 20)
+                    .padding(.horizontal, 44)
+
+                VStack(spacing: 14) {
+                    Button("仮保存") {
+                        isShowAlert.toggle()
+                    }
+                    .buttonStyle(CleaningPrimaryButtonStyle())
+                    .alert("仮保存しますか", isPresented: $isShowAlert) {
+                        Button("戻る"){}
+                        Button("仮保存する"){
+                            saveDraft()
+                            pause()
+                            onFinishFlow()
+                        }
+                    }
+
+                    Button("完了") {
+                        let completedSecondsElapsed = secondsElapsed
+                        stop(resetElapsed: false)
+                        onCompleteCleaning(completedSecondsElapsed, playedTracks)
+                    }
+                    .buttonStyle(CleaningPrimaryButtonStyle())
+                }
+                .padding(.top, 18)
+                .padding(.horizontal, 44)
+                .padding(.bottom, 18)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(cleaningBackground)
+            .navigationBarBackButtonHidden(true)
         }
             .onAppear {
                 print("[CleaningView] onAppear. before image exists: \(beforeImage != nil)")
@@ -136,8 +161,57 @@ struct CleaningView: View{
             }
         }
     
+    private var timerRing: some View {
+        ZStack {
+            Circle()
+                .fill(Color(red: 213 / 255, green: 213 / 255, blue: 213 / 255))
+                .frame(width: 210, height: 210)
+
+            Circle()
+                .stroke(Color(red: 207 / 255, green: 208 / 255, blue: 216 / 255), lineWidth: 9)
+                .frame(width: 238, height: 238)
+
+            Circle()
+                .trim(from: 0, to: timerProgress)
+                .stroke(cleaningOrange, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                .frame(width: 238, height: 238)
+                .rotationEffect(.degrees(-90))
+
+            Text(String(format: "%.2f", secondsElapsed))
+                .font(.system(size: 46, weight: .bold))
+                .foregroundStyle(.primary)
+        }
+        .frame(width: 250, height: 250)
+    }
+
+    private var volumeControl: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "speaker.fill")
+                .font(.system(size: 19, weight: .semibold))
+            Slider(value: $volume, in: 0...1)
+                .tint(.primary)
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 21, weight: .semibold))
+        }
+        .foregroundStyle(.primary)
+    }
+
+    private var timerProgress: Double {
+        let minutes = secondsElapsed.truncatingRemainder(dividingBy: 60)
+        return max(0.04, min(minutes / 60, 1))
+    }
+
+    private var cleaningOrange: Color {
+        Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255)
+    }
+
+    private var cleaningBackground: Color {
+        Color(red: 253 / 255, green: 253 / 255, blue: 250 / 255)
+    }
+
     func start() {
         print("[CleaningView] start timer")
+        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             secondsElapsed += 0.1
             recordCurrentTrack()
@@ -148,14 +222,14 @@ struct CleaningView: View{
     
     func pause() {
         print("[CleaningView] pause timer at \(secondsElapsed)")
-        timer.invalidate()
+        timer?.invalidate()
         isRunning = false
         pauseSelectedSong()
     }
     
     func stop(resetElapsed: Bool = true) {
         print("[CleaningView] stop timer at \(secondsElapsed)")
-        timer.invalidate()
+        timer?.invalidate()
         isRunning = false
         stopSelectedSong()
         isSongPrepared = false
@@ -197,6 +271,24 @@ struct CleaningView: View{
             ApplicationMusicPlayer.shared.pause()
         case .local:
             MPMusicPlayerController.applicationQueuePlayer.pause()
+        }
+    }
+
+    private func skipToNext() {
+        switch playbackSource {
+        case .appleMusic:
+            Task { try? await ApplicationMusicPlayer.shared.skipToNextEntry() }
+        case .local:
+            MPMusicPlayerController.applicationQueuePlayer.skipToNextItem()
+        }
+    }
+
+    private func skipToPrevious() {
+        switch playbackSource {
+        case .appleMusic:
+            Task { try? await ApplicationMusicPlayer.shared.skipToPreviousEntry() }
+        case .local:
+            MPMusicPlayerController.applicationQueuePlayer.skipToPreviousItem()
         }
     }
     
@@ -328,5 +420,18 @@ struct CleaningView: View{
         case .local(let items):
             return items.first?.artist
         }
+    }
+}
+
+private struct CleaningPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 19, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

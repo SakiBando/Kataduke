@@ -17,7 +17,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 32) {
                     let allPlaylistSongs = viewModel.appleMusicPlaylists.flatMap { Array($0.tracks ?? []) }
                     let allLocalPlaylistSongs = viewModel.localPlaylists.flatMap { $0.items }
                     let resumeAppleSong = draftSessions.first.flatMap { draft in
@@ -72,13 +72,16 @@ struct HomeView: View {
                         }
                     }
                     
+                    Text("My PlayList")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .padding(.top, 20)
+
                     if viewModel.canPlayCatalogContent {
-                        Text("プレイリスト一覧")
-                            .font(.headline)
-                        ScrollView(.horizontal) {
-                            LazyHStack(alignment: .top) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(alignment: .top, spacing: 24) {
                                 if viewModel.appleMusicPlaylists.isEmpty {
-                                    Text("Empty Playlist")
+                                    playlistPlaceholderCard(title: "Empty Playlist", subtitle: "")
                                 } else {
                                     ForEach(Array(viewModel.appleMusicPlaylists)) { playlist in
                                         NavigationLink {
@@ -88,31 +91,19 @@ struct HomeView: View {
                                                 playbackSource: .appleMusic(Array(playlist.tracks ?? []))
                                             )
                                         } label: {
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                playlistArtwork(for: playlist)
-                                                Text(playlist.name)
-                                                    .font(.headline)
-                                                    .foregroundStyle(.primary)
-                                                    .frame(width: 150, alignment: .leading)
-                                                    .lineLimit(2)
-                                                Text("\(playlist.tracks?.count ?? 0)曲")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
+                                            appleMusicPlaylistCard(for: playlist)
                                         }
                                         .buttonStyle(.plain)
                                     }
                                 }
                             }
-                            .padding()
+                            .padding(.trailing, 24)
                         }
                     } else {
-                        Text("ローカルプレイリスト")
-                            .font(.headline)
-                        ScrollView(.horizontal) {
-                            LazyHStack(alignment: .top) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(alignment: .top, spacing: 24) {
                                 if viewModel.localPlaylists.isEmpty {
-                                    Text("Empty Playlist")
+                                    playlistPlaceholderCard(title: "Empty Playlist", subtitle: "")
                                 } else {
                                     ForEach(viewModel.localPlaylists, id: \.persistentID) { playlist in
                                         NavigationLink {
@@ -128,27 +119,35 @@ struct HomeView: View {
                                                 }
                                                 return name
                                             }()
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                localPlaylistArtwork(for: playlist)
-                                                Text(playlistName)
-                                                    .font(.headline)
-                                                    .foregroundStyle(.primary)
-                                                    .frame(width: 150, alignment: .leading)
-                                                    .lineLimit(2)
-                                                Text("\(playlist.count)曲")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
+                                            localPlaylistCard(for: playlist, playlistName: playlistName)
                                         }
                                         .buttonStyle(.plain)
                                     }
                                 }
                             }
-                            .padding()
+                            .padding(.trailing, 24)
                         }
                     }
-    //                Text(viewModel.recommendedPlayLisits.first?.name ?? "ありません")
+
+                    VStack(spacing: 28) {
+                        moodCard(
+                            title: "Relaxing",
+                            systemImage: "leaf.fill",
+                            imageColor: Color(red: 126 / 255, green: 203 / 255, blue: 86 / 255),
+                            backgroundColor: Color(red: 190 / 255, green: 226 / 255, blue: 207 / 255)
+                        )
+
+                        moodCard(
+                            title: "Hardcore",
+                            systemImage: "sun.max.fill",
+                            imageColor: Color(red: 1, green: 110 / 255, blue: 36 / 255),
+                            backgroundColor: Color(red: 250 / 255, green: 200 / 255, blue: 170 / 255)
+                        )
+                    }
+                    .padding(.top, 8)
                 }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
                 .onAppear() {
                     Task {
                         await viewModel.authorize()
@@ -160,27 +159,8 @@ struct HomeView: View {
                         }
                     }
                 }
-                Button{
-                    
-                } label: {
-                    Text("ゆったり")
-                        .font(.system(size: 38))
-                        .foregroundStyle(.black)
-                        .frame(width:300, height: 100)
-                        .background(Color(red: 183 / 255, green: 169 / 255, blue: 154 / 255))
-                        .cornerRadius(12)
-                }
-                Button{
-                    
-                } label: {
-                    Text("がっつり")
-                        .font(.system(size: 38))
-                        .foregroundStyle(.black)
-                        .frame(width:300, height: 100)
-                        .background(Color(red: 215 / 255, green: 184 / 255, blue: 163 / 255))
-                        .cornerRadius(12)
-                }
             }
+            .background(homeBackground)
         }
     }
 
@@ -218,6 +198,32 @@ struct HomeView: View {
         }
     }
 
+    private func appleMusicPlaylistCard(for playlist: Playlist) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            playlistArtwork(for: playlist)
+            Text(playlist.name)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Text("\(playlist.tracks?.count ?? 0)曲")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func localPlaylistCard(for playlist: MPMediaPlaylist, playlistName: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            localPlaylistArtwork(for: playlist)
+            Text(playlistName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Text("\(playlist.count)曲")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     @ViewBuilder
     private func localPlaylistArtwork(for playlist: MPMediaPlaylist) -> some View {
         if let artwork = playlist.representativeItem?.artwork,
@@ -233,6 +239,21 @@ struct HomeView: View {
         }
     }
 
+    private func playlistPlaceholderCard(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            playlistArtworkPlaceholder
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var playlistArtworkPlaceholder: some View {
         ZStack {
             Color.gray.opacity(0.12)
@@ -242,6 +263,43 @@ struct HomeView: View {
         }
         .frame(width: 150, height: 150)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func moodCard(
+        title: String,
+        systemImage: String,
+        imageColor: Color,
+        backgroundColor: Color
+    ) -> some View {
+        Button {
+        } label: {
+            VStack(alignment: .leading, spacing: 28) {
+                Text(title)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                HStack(alignment: .bottom) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 62, weight: .regular))
+                        .foregroundStyle(imageColor)
+                    Spacer()
+                    Text(">>>")
+                        .font(.system(size: 42, weight: .regular))
+                        .foregroundStyle(.primary)
+                        .padding(.bottom, 2)
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 22)
+            .frame(maxWidth: .infinity, minHeight: 160, alignment: .leading)
+            .background(backgroundColor)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var homeBackground: Color {
+        Color(red: 253 / 255, green: 253 / 255, blue: 250 / 255)
     }
 
     private func resumePlaybackSource(
