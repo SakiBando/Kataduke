@@ -20,67 +20,92 @@ struct ResultView: View {
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) var context
     @State private var evaluation: CleanupEvaluation?
-        @State private var isEvaluating = false
-        @State private var evaluationError: String?
+    @State private var isEvaluating = false
+    @State private var evaluationError: String?
 
     
     var body: some View {
         NavigationStack {
-            VStack {
-                Text(String(format: "%.2f",resultTimer)).font(.title)
-                HStack(spacing: 16) {
-                    resultImageView(image: beforeImage, title: "Before")
-                    resultImageView(image: afterImage, title: "After")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Button {
+                        onFinishFlow()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 32, weight: .regular))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+
+                    Text(String(format: "%.2f", resultTimer))
+                        .font(.system(size: 78, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, -8)
+
+                    HStack(alignment: .top, spacing: 18) {
+                        resultImageView(image: beforeImage, title: "Before")
+                        resultImageView(image: afterImage, title: "After")
+                    }
+
+                    evaluationSection
+                    playedTracksSection
+
+                    VStack(spacing: 22) {
+                        Button {
+                            saveImage()
+                        } label: {
+                            Text("共有して保存")
+                        }
+                        .buttonStyle(ResultPrimaryButtonStyle())
+
+                        Button {
+                            saveImage()
+                        } label: {
+                            Text("共有せずに保存")
+                        }
+                        .buttonStyle(ResultPrimaryButtonStyle())
+                    }
+                    .padding(.horizontal, 70)
+                    .padding(.top, 28)
+                    .padding(.bottom, 24)
                 }
-                .padding(.vertical, 12)
-                
-                evaluationSection
-                playedTracksSection
-                
-                Button{
-                    saveImage()
-                } label: {
-                    Text("共有して保存")
-                }
-                
-                Button{
-                    saveImage()
-                } label: {
-                    Text("共有せずに保存")
-                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
+            .background(resultBackground)
+            .navigationBarBackButtonHidden(true)
             .onAppear() {
                 fetchTimer()
             }
             .task {
                 await evaluateCleanupIfNeeded()
             }
-            
-            NavigationLink(destination: MemoriesView()) {
-                Text("To Memories View")
-                
-            }
         }
     }
 
     @ViewBuilder
     private var playedTracksSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("再生した曲")
-                .font(.headline)
+                .font(.system(size: 30, weight: .bold))
 
             if playedTracks.isEmpty {
                 Text("曲がありません")
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(playedTracks) { track in
+                ForEach(playedTracks.prefix(2)) { track in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 24, weight: .semibold))
+                            .lineLimit(1)
                         if !track.artistName.isEmpty {
                             Text(track.artistName)
-                                .font(.subheadline)
+                                .font(.system(size: 21, weight: .semibold))
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -88,9 +113,11 @@ struct ResultView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(minHeight: 156, alignment: .topLeading)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .background(resultCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
     private func scoreRow(title: String, score: Int) -> some View {
@@ -102,10 +129,10 @@ struct ResultView: View {
         }
     
     @ViewBuilder
-        private var evaluationSection: some View {
+    private var evaluationSection: some View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Gemini評価")
-                    .font(.headline)
+                    .font(.system(size: 30, weight: .bold))
                 
                 if isEvaluating {
                     HStack(spacing: 12) {
@@ -114,11 +141,12 @@ struct ResultView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else if let evaluation {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .trailing, spacing: 12) {
                         scoreRow(title: "片付け前", score: evaluation.clampedBeforeScore)
                         scoreRow(title: "片付け後", score: evaluation.clampedAfterScore)
                         scoreRow(title: "改善度", score: evaluation.improvementScore)
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let evaluationError {
                     Text(evaluationError)
                         .font(.subheadline)
@@ -126,33 +154,37 @@ struct ResultView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(Color.gray.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .frame(minHeight: 160, alignment: .topLeading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+            .background(resultCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     
     @ViewBuilder
     func resultImageView(image: UIImage?, title: String) -> some View {
-        VStack {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.headline)
+                .font(.system(size: 26, weight: .bold))
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 140, height: 180)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 168)
                     .clipped()
-                    .cornerRadius(12)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 140, height: 180)
+                    .fill(resultCardBackground)
+                    .frame(height: 168)
                     .overlay {
                         Image(systemName: "photo")
                             .foregroundColor(.gray)
                     }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     
@@ -182,6 +214,14 @@ struct ResultView: View {
     func fetchTimer() {
             resultTimer = UserDefaults.standard.double(forKey: "saki-chan")
         }
+
+    private var resultBackground: Color {
+        Color(red: 253 / 255, green: 253 / 255, blue: 250 / 255)
+    }
+
+    private var resultCardBackground: Color {
+        Color(red: 214 / 255, green: 214 / 255, blue: 214 / 255)
+    }
     
     @MainActor
     private func evaluateCleanupIfNeeded() async {
@@ -205,5 +245,18 @@ struct ResultView: View {
             evaluationError = error.localizedDescription
             print("[ResultView] evaluation failed: \(error.localizedDescription)")
         }
+    }
+}
+
+private struct ResultPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
