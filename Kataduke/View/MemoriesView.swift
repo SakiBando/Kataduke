@@ -9,11 +9,18 @@ import SwiftUI
 import SwiftData
 
 struct MemoriesView: View {
+    private enum SortOption: String, CaseIterable {
+        case newest = "新しい順"
+        case oldest = "古い順"
+        case longest = "総時間が長い順"
+    }
+
     @Query(sort: \SelectedImage.createdAt, order: .reverse) var memories: [SelectedImage]
     @Environment(\.modelContext) private var context
     @State private var memoryToDelete: SelectedImage?
     @State private var showDeleteAlert = false
     @State private var deleteErrorMessage: String?
+    @State private var sortOption: SortOption = .newest
     private let sharedRecordService = SharedCleaningRecordService()
     
     var body: some View {
@@ -23,7 +30,7 @@ struct MemoriesView: View {
                     ContentUnavailableView("まだ記録はありません", systemImage: "photo.on.rectangle")
                 } else {
                     List {
-                        ForEach(memories, id: \.persistentModelID) { memory in
+                        ForEach(sortedMemories, id: \.persistentModelID) { memory in
                             NavigationLink {
                                 MemoryDetailView(memory: memory)
                             } label: {
@@ -42,6 +49,24 @@ struct MemoriesView: View {
                 }
             }
             .navigationTitle("これまでの記録")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(SortOption.allCases, id: \.self) { option in
+                            Button {
+                                sortOption = option
+                            } label: {
+                                Label(
+                                    option.rawValue,
+                                    systemImage: sortOption == option ? "checkmark" : ""
+                                )
+                            }
+                        }
+                    } label: {
+                        Text("選択")
+                    }
+                }
+            }
             .alert("記録を削除しますか？", isPresented: $showDeleteAlert) {
                 Button("キャンセル", role: .cancel) {
                     memoryToDelete = nil
@@ -63,6 +88,17 @@ struct MemoriesView: View {
             } message: {
                 Text(deleteErrorMessage ?? "")
             }
+        }
+    }
+
+    private var sortedMemories: [SelectedImage] {
+        switch sortOption {
+        case .newest:
+            return memories.sorted { $0.createdAt > $1.createdAt }
+        case .oldest:
+            return memories.sorted { $0.createdAt < $1.createdAt }
+        case .longest:
+            return memories.sorted { $0.elapsedTime > $1.elapsedTime }
         }
     }
     

@@ -42,8 +42,8 @@ struct LoginView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(authViewModel.isLoading)
 
-                Button {
-                    Task { await authViewModel.signUp() }
+                NavigationLink {
+                    RegisterView()
                 } label: {
                     Text("新規登録")
                         .frame(maxWidth: .infinity)
