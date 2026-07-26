@@ -6,10 +6,5 @@
 	<string>友達のQRコード読み取りと掃除記録用の写真撮影にカメラを使用します。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>プロフィールアイコンに使う写真を選ぶために写真ライブラリを使用します。</string>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict/>
-		<dict/>
-	</array>
 </dict>
 </plist>

@@ -136,6 +136,36 @@ struct UserProfileService {
         return friends
     }
 
+    func deleteProfileData(userID: String) async throws {
+        let profile = try await fetchProfile(userID: userID)
+        let friendsSnapshot = try await database
+            .collection("users")
+            .document(userID)
+            .collection("friends")
+            .getDocuments()
+
+        let batch = database.batch()
+        for document in friendsSnapshot.documents {
+            let friendUserID = document.data()["friendUserID"] as? String ?? document.documentID
+            batch.deleteDocument(document.reference)
+            batch.deleteDocument(
+                database
+                    .collection("users")
+                    .document(friendUserID)
+                    .collection("friends")
+                    .document(userID)
+            )
+        }
+
+        if let accountCode = profile?.accountCode, !accountCode.isEmpty {
+            batch.deleteDocument(database.collection("friendCodes").document(accountCode))
+        }
+        batch.deleteDocument(database.collection("users").document(userID))
+        try await batch.commit()
+
+        try? await storage.reference().child("profileIcons/\(userID)/icon.jpg").delete()
+    }
+
     private func uploadIcon(userID: String, image: UIImage) async throws -> URL {
         guard let data = image.jpegData(compressionQuality: 0.8) else {
             throw UserProfileError.invalidImage

@@ -36,6 +36,8 @@ struct AccountView: View {
     @State private var isShowingIconSourceOptions = false
     @State private var iconPickerSource: IconPickerSource?
     @State private var originalName = ""
+    @State private var isShowingSignOutAlert = false
+    @State private var isShowingDeleteAccountAlert = false
     @FocusState private var focusedField: ProfileField?
     private let qrContext = CIContext()
     private let qrFilter = CIFilter.qrCodeGenerator()
@@ -105,13 +107,32 @@ struct AccountView: View {
             if let message = profileViewModel.errorMessage {
                 Text(message).foregroundStyle(.red)
             }
+            if let message = authViewModel.errorMessage {
+                Text(message).foregroundStyle(.red)
+            }
 
             Section {
-                Button("ログアウト", role: .destructive) {
-                    authViewModel.signOut()
+                Button {
+                    isShowingSignOutAlert = true
+                } label: {
+                    Text("ログアウト")
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(AccountDangerButtonStyle())
+
+                Button {
+                    isShowingDeleteAccountAlert = true
+                } label: {
+                    if authViewModel.isLoading {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("アカウント削除")
+                    }
+                }
+                .buttonStyle(AccountDangerButtonStyle(isFilled: true))
+                .disabled(authViewModel.isLoading)
             }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
         }
         .scrollDismissesKeyboard(.interactively)
         .onTapGesture {
@@ -170,6 +191,22 @@ struct AccountView: View {
             } onCancel: {
                 iconPickerSource = nil
             }
+        }
+        .alert("ログアウトしますか？", isPresented: $isShowingSignOutAlert) {
+            Button("キャンセル", role: .cancel) { }
+            Button("ログアウト", role: .destructive) {
+                authViewModel.signOut()
+            }
+        }
+        .alert("アカウントを削除しますか？", isPresented: $isShowingDeleteAccountAlert) {
+            Button("キャンセル", role: .cancel) { }
+            Button("削除", role: .destructive) {
+                Task {
+                    _ = await authViewModel.deleteAccount()
+                }
+            }
+        } message: {
+            Text("Firebase上のプロフィールや友達情報も削除されます。この操作は取り消せません。")
         }
     }
 
@@ -267,5 +304,20 @@ private struct ProfileIconPickerView: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.onCancel()
         }
+    }
+}
+
+private struct AccountDangerButtonStyle: ButtonStyle {
+    var isFilled = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(isFilled ? .white : .red)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(isFilled ? Color.red : Color.red.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

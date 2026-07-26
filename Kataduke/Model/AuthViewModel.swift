@@ -78,6 +78,29 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func deleteAccount() async -> Bool {
+        guard let currentUser = Auth.auth().currentUser else {
+            errorMessage = "ログイン情報を確認できませんでした。"
+            return false
+        }
+
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            try await currentUser.delete()
+            try await UserProfileService().deleteProfileData(userID: currentUser.uid)
+            user = nil
+            email = ""
+            password = ""
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     private enum Mode {
         case signIn
         case signUp
