@@ -32,8 +32,10 @@ struct AccountView: View {
 
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var profileViewModel = UserProfileViewModel()
+    @State private var isEditingProfile = false
     @State private var isShowingIconSourceOptions = false
     @State private var iconPickerSource: IconPickerSource?
+    @State private var originalName = ""
     @FocusState private var focusedField: ProfileField?
     private let qrContext = CIContext()
     private let qrFilter = CIFilter.qrCodeGenerator()
@@ -47,12 +49,14 @@ struct AccountView: View {
                     Spacer()
                 }
 
-                Button {
-                    focusedField = nil
-                    isShowingIconSourceOptions = true
-                } label: {
-                    Label("アイコンを選ぶ", systemImage: "photo")
-                        .frame(maxWidth: .infinity)
+                if isEditingProfile {
+                    Button {
+                        focusedField = nil
+                        isShowingIconSourceOptions = true
+                    } label: {
+                        Label("アイコンを変更", systemImage: "photo")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
             }
 
@@ -63,26 +67,17 @@ struct AccountView: View {
                         .textSelection(.enabled)
                 }
 
-                TextField("名前", text: $profileViewModel.name)
-                    .textInputAutocapitalization(.words)
-                    .focused($focusedField, equals: .name)
-            }
-
-            Section {
-                Button {
-                    Task { await profileViewModel.save() }
-                } label: {
-                    if profileViewModel.isSaving {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Text("Firebaseに保存")
+                if isEditingProfile {
+                    TextField("名前", text: $profileViewModel.name)
+                        .textInputAutocapitalization(.words)
+                        .focused($focusedField, equals: .name)
+                } else {
+                    LabeledContent("名前") {
+                        Text(profileViewModel.name.isEmpty ? "未設定" : profileViewModel.name)
+                            .foregroundStyle(profileViewModel.name.isEmpty ? .secondary : .primary)
                     }
                 }
-                .buttonStyle(AccountPrimaryButtonStyle())
-                .disabled(profileViewModel.isSaving || profileViewModel.isLoading)
             }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
             Section("自分のアカウントコード") {
                 VStack(spacing: 14) {
@@ -123,6 +118,34 @@ struct AccountView: View {
             focusedField = nil
         }
         .navigationTitle("アカウント")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                if isEditingProfile {
+                    Button("キャンセル") {
+                        cancelEditing()
+                    }
+                }
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                if isEditingProfile {
+                    Button {
+                        Task { await saveProfileFromToolbar() }
+                    } label: {
+                        if profileViewModel.isSaving {
+                            ProgressView()
+                        } else {
+                            Text("保存")
+                        }
+                    }
+                    .disabled(profileViewModel.isSaving || profileViewModel.isLoading)
+                } else {
+                    Button("編集") {
+                        startEditing()
+                    }
+                }
+            }
+        }
         .task {
             await profileViewModel.load()
             await profileViewModel.prepareAccountCodeIfNeeded()
@@ -147,6 +170,27 @@ struct AccountView: View {
             } onCancel: {
                 iconPickerSource = nil
             }
+        }
+    }
+
+    private func startEditing() {
+        originalName = profileViewModel.name
+        isEditingProfile = true
+    }
+
+    private func cancelEditing() {
+        profileViewModel.name = originalName
+        profileViewModel.iconImage = nil
+        focusedField = nil
+        isEditingProfile = false
+    }
+
+    @MainActor
+    private func saveProfileFromToolbar() async {
+        await profileViewModel.save()
+        if profileViewModel.errorMessage == nil {
+            focusedField = nil
+            isEditingProfile = false
         }
     }
 
@@ -223,18 +267,5 @@ private struct ProfileIconPickerView: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.onCancel()
         }
-    }
-}
-
-struct AccountPrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
