@@ -13,4 +13,6 @@ struct SharedCleaningRecord: Identifiable {
     let beforeTidinessScore: Int?
     let afterTidinessScore: Int?
     let improvementScore: Int?
+    let likeCount: Int
+    let isLikedByCurrentUser: Bool
 }

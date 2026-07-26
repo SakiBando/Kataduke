@@ -221,20 +221,11 @@ struct ResultView: View {
         let beforeImageData = beforeImage?.jpegData(compressionQuality: 0.8)
         let afterImageData = afterImage?.jpegData(compressionQuality: 0.8)
         let playedTracksData = try? JSONEncoder().encode(playedTracks)
-        let record = SelectedImage(
-            elapsedTime: resultTimer,
-            beforeImageData: beforeImageData,
-            afterImageData: afterImageData,
-            playedTracksData: playedTracksData,
-            beforeTidinessScore: evaluation?.clampedBeforeScore,
-            afterTidinessScore: evaluation?.clampedAfterScore,
-            improvementScore: evaluation?.improvementScore
-        )
-        context.insert(record)
+        var sharedRecordID: String?
 
         if shouldShare {
             do {
-                try await sharedRecordService.shareRecord(
+                sharedRecordID = try await sharedRecordService.shareRecord(
                     elapsedTime: resultTimer,
                     beforeImage: beforeImage,
                     afterImage: afterImage,
@@ -244,11 +235,22 @@ struct ResultView: View {
                     improvementScore: evaluation?.improvementScore
                 )
             } catch {
-                context.delete(record)
                 saveError = error.localizedDescription
                 return
             }
         }
+
+        let record = SelectedImage(
+            elapsedTime: resultTimer,
+            beforeImageData: beforeImageData,
+            afterImageData: afterImageData,
+            playedTracksData: playedTracksData,
+            beforeTidinessScore: evaluation?.clampedBeforeScore,
+            afterTidinessScore: evaluation?.clampedAfterScore,
+            improvementScore: evaluation?.improvementScore,
+            sharedRecordID: sharedRecordID
+        )
+        context.insert(record)
         
         print("[ResultView] save complete. Returning HomeView")
         onFinishFlow()

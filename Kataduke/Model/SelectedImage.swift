@@ -17,6 +17,7 @@ final class SelectedImage {
     var beforeTidinessScore: Int?
     var afterTidinessScore: Int?
     var improvementScore: Int?
+    var sharedRecordID: String?
     
     init(
         createdAt: Date = Date(),
@@ -26,7 +27,8 @@ final class SelectedImage {
         playedTracksData: Data? = nil,
         beforeTidinessScore: Int? = nil,
         afterTidinessScore: Int? = nil,
-        improvementScore: Int? = nil
+        improvementScore: Int? = nil,
+        sharedRecordID: String? = nil
     ) {
         self.createdAt = createdAt
         self.elapsedTime = elapsedTime
@@ -36,6 +38,7 @@ final class SelectedImage {
         self.beforeTidinessScore = beforeTidinessScore
         self.afterTidinessScore = afterTidinessScore
         self.improvementScore = improvementScore
+        self.sharedRecordID = sharedRecordID
     }
 
     var playedTracks: [PlayedTrackInfo] {

@@ -16,7 +16,7 @@ struct SharedCleaningRecordService {
         beforeTidinessScore: Int?,
         afterTidinessScore: Int?,
         improvementScore: Int?
-    ) async throws {
+    ) async throws -> String {
         guard let currentUserID = Auth.auth().currentUser?.uid else {
             throw SharedCleaningRecordError.notLoggedIn
         }
@@ -90,6 +90,7 @@ struct SharedCleaningRecordService {
                 .document(recordID)
                 .setData(values, merge: true)
         }
+        return recordID
     }
 
     func fetchSharedRecords() async throws -> [SharedCleaningRecord] {
@@ -104,7 +105,8 @@ struct SharedCleaningRecordService {
             .order(by: "createdAt", descending: true)
             .getDocuments()
 
-        return snapshot.documents.map { document in
+        var records: [SharedCleaningRecord] = []
+        for document in snapshot.documents {
             let data = document.data()
             let playedTrackObjects = data["playedTracks"] as? [[String: Any]] ?? []
             let playedTracks = playedTrackObjects.compactMap { object -> PlayedTrackInfo? in
@@ -115,8 +117,10 @@ struct SharedCleaningRecordService {
                 }
                 return PlayedTrackInfo(id: id, title: title, artistName: artistName)
             }
+            let likesSnapshot = try await document.reference.collection("likes").getDocuments()
+            let isLikedByCurrentUser = likesSnapshot.documents.contains { $0.documentID == currentUserID }
 
-            return SharedCleaningRecord(
+            records.append(SharedCleaningRecord(
                 id: document.documentID,
                 ownerUserID: data["ownerUserID"] as? String ?? "",
                 ownerName: data["ownerName"] as? String ?? "名前なし",
@@ -128,8 +132,67 @@ struct SharedCleaningRecordService {
                 playedTracks: playedTracks,
                 beforeTidinessScore: data["beforeTidinessScore"] as? Int,
                 afterTidinessScore: data["afterTidinessScore"] as? Int,
-                improvementScore: data["improvementScore"] as? Int
-            )
+                improvementScore: data["improvementScore"] as? Int,
+                likeCount: likesSnapshot.documents.count,
+                isLikedByCurrentUser: isLikedByCurrentUser
+            ))
+        }
+        return records
+    }
+
+    func deleteSharedRecord(recordID: String) async throws {
+        guard let currentUserID = Auth.auth().currentUser?.uid else {
+            throw SharedCleaningRecordError.notLoggedIn
+        }
+        guard !recordID.isEmpty else { return }
+
+        let friendsSnapshot = try await database
+            .collection("users")
+            .document(currentUserID)
+            .collection("friends")
+            .getDocuments()
+        let friendIDs = friendsSnapshot.documents.map {
+            $0.data()["friendUserID"] as? String ?? $0.documentID
+        }
+
+        for friendID in friendIDs {
+            let recordReference = database
+                .collection("users")
+                .document(friendID)
+                .collection("sharedRecords")
+                .document(recordID)
+            let likesSnapshot = try await recordReference.collection("likes").getDocuments()
+            for likeDocument in likesSnapshot.documents {
+                try await likeDocument.reference.delete()
+            }
+            try await recordReference.delete()
+        }
+
+        let storageReference = storage.reference().child("sharedRecords/\(currentUserID)/\(recordID)")
+        try? await storageReference.child("before.jpg").delete()
+        try? await storageReference.child("after.jpg").delete()
+    }
+
+    func toggleLike(recordID: String, isLikedByCurrentUser: Bool) async throws {
+        guard let currentUserID = Auth.auth().currentUser?.uid else {
+            throw SharedCleaningRecordError.notLoggedIn
+        }
+
+        let likeReference = database
+            .collection("users")
+            .document(currentUserID)
+            .collection("sharedRecords")
+            .document(recordID)
+            .collection("likes")
+            .document(currentUserID)
+
+        if isLikedByCurrentUser {
+            try await likeReference.delete()
+        } else {
+            try await likeReference.setData([
+                "userID": currentUserID,
+                "createdAt": FieldValue.serverTimestamp()
+            ], merge: true)
         }
     }
 

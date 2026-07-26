@@ -42,7 +42,9 @@ struct ShareView: View {
                 } else {
                     List(records) { record in
                         NavigationLink {
-                            SharedRecordDetailView(record: record)
+                            SharedRecordDetailView(record: record) { isLiked in
+                                await toggleLike(for: record, isLiked: isLiked)
+                            }
                         } label: {
                             SharedRecordRowView(record: record)
                         }
@@ -112,6 +114,16 @@ struct ShareView: View {
         defer { isLoading = false }
 
         do {
+            records = try await service.fetchSharedRecords()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func toggleLike(for record: SharedCleaningRecord, isLiked: Bool) async {
+        do {
+            try await service.toggleLike(recordID: record.id, isLikedByCurrentUser: isLiked)
             records = try await service.fetchSharedRecords()
         } catch {
             errorMessage = error.localizedDescription
@@ -343,6 +355,9 @@ private struct SharedRecordRowView: View {
                 Text(record.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Label("\(record.likeCount)", systemImage: record.isLikedByCurrentUser ? "heart.fill" : "heart")
+                    .font(.caption)
+                    .foregroundStyle(record.isLikedByCurrentUser ? .red : .secondary)
             }
         }
         .padding(.vertical, 6)
@@ -383,6 +398,17 @@ private struct SharePrimaryButtonStyle: ButtonStyle {
 
 private struct SharedRecordDetailView: View {
     let record: SharedCleaningRecord
+    var onLikeTapped: (Bool) async -> Void
+    @State private var isUpdatingLike = false
+    @State private var displayedLikeCount: Int
+    @State private var displayedIsLiked: Bool
+
+    init(record: SharedCleaningRecord, onLikeTapped: @escaping (Bool) async -> Void) {
+        self.record = record
+        self.onLikeTapped = onLikeTapped
+        self._displayedLikeCount = State(initialValue: record.likeCount)
+        self._displayedIsLiked = State(initialValue: record.isLikedByCurrentUser)
+    }
 
     var body: some View {
         ScrollView {
@@ -409,6 +435,25 @@ private struct SharedRecordDetailView: View {
 
                 scoreSection
                 playedTracksSection
+
+                Button {
+                    Task {
+                        isUpdatingLike = true
+                        let wasLiked = displayedIsLiked
+                        displayedIsLiked.toggle()
+                        displayedLikeCount += wasLiked ? -1 : 1
+                        await onLikeTapped(wasLiked)
+                        isUpdatingLike = false
+                    }
+                } label: {
+                    Label(
+                        "\(displayedLikeCount)",
+                        systemImage: displayedIsLiked ? "heart.fill" : "heart"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(LikeButtonStyle(isLiked: displayedIsLiked))
+                .disabled(isUpdatingLike)
             }
             .padding()
         }
@@ -517,6 +562,21 @@ private struct SharedRecordDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct LikeButtonStyle: ButtonStyle {
+    let isLiked: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(isLiked ? .white : .red)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(isLiked ? Color.red : Color.red.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 

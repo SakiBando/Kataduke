@@ -13,6 +13,8 @@ struct MemoriesView: View {
     @Environment(\.modelContext) private var context
     @State private var memoryToDelete: SelectedImage?
     @State private var showDeleteAlert = false
+    @State private var deleteErrorMessage: String?
+    private let sharedRecordService = SharedCleaningRecordService()
     
     var body: some View {
         NavigationStack {
@@ -46,17 +48,34 @@ struct MemoriesView: View {
                 }
                 Button("削除", role: .destructive) {
                     if let memoryToDelete {
-                        delete(memoryToDelete)
+                        Task { await delete(memoryToDelete) }
                     }
                     memoryToDelete = nil
                 }
             } message: {
                 Text("この操作は取り消せません。")
             }
+            .alert("削除エラー", isPresented: Binding(
+                get: { deleteErrorMessage != nil },
+                set: { if !$0 { deleteErrorMessage = nil } }
+            )) {
+                Button("OK") { deleteErrorMessage = nil }
+            } message: {
+                Text(deleteErrorMessage ?? "")
+            }
         }
     }
     
-    private func delete(_ memory: SelectedImage) {
+    @MainActor
+    private func delete(_ memory: SelectedImage) async {
+        if let sharedRecordID = memory.sharedRecordID {
+            do {
+                try await sharedRecordService.deleteSharedRecord(recordID: sharedRecordID)
+            } catch {
+                deleteErrorMessage = error.localizedDescription
+                return
+            }
+        }
         context.delete(memory)
         print("[MemoriesView] deleted memory: \(memory.createdAt)")
     }
