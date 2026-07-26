@@ -5,7 +5,6 @@ import UIKit
 struct AccountView: View {
     private enum ProfileField: Hashable {
         case name
-        case friendCode
     }
 
     private enum IconPickerSource: Identifiable {
@@ -35,8 +34,6 @@ struct AccountView: View {
     @StateObject private var profileViewModel = UserProfileViewModel()
     @State private var isShowingIconSourceOptions = false
     @State private var iconPickerSource: IconPickerSource?
-    @State private var isShowingQRScanner = false
-    @State private var isShowingFriendAddedAlert = false
     @FocusState private var focusedField: ProfileField?
     private let qrContext = CIContext()
     private let qrFilter = CIFilter.qrCodeGenerator()
@@ -107,59 +104,6 @@ struct AccountView: View {
                 .padding(.vertical, 8)
             }
 
-            Section("友達登録") {
-                TextField("友達のアカウントコード", text: $profileViewModel.friendCode)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .focused($focusedField, equals: .friendCode)
-
-                Button {
-                    focusedField = nil
-                    isShowingQRScanner = true
-                } label: {
-                    Label("QRコードを読み取る", systemImage: "qrcode.viewfinder")
-                        .frame(maxWidth: .infinity)
-                }
-            }
-
-            Section {
-                Button {
-                    focusedField = nil
-                    Task {
-                        if await profileViewModel.addFriend() {
-                            isShowingFriendAddedAlert = true
-                        }
-                    }
-                } label: {
-                    if profileViewModel.isAddingFriend {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Text("友達を追加")
-                    }
-                }
-                .buttonStyle(AccountPrimaryButtonStyle())
-                .disabled(profileViewModel.isAddingFriend || profileViewModel.friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-
-            Section("友達一覧") {
-                if profileViewModel.friends.isEmpty {
-                    Text("まだ友達がいません")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(profileViewModel.friends) { friend in
-                        HStack(spacing: 12) {
-                            friendIcon(url: friend.iconURL)
-                            Text(friend.name)
-                                .font(.headline)
-                            Spacer()
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-            }
-
             if let message = profileViewModel.message {
                 Text(message).foregroundStyle(.green)
             }
@@ -182,7 +126,6 @@ struct AccountView: View {
         .task {
             await profileViewModel.load()
             await profileViewModel.prepareAccountCodeIfNeeded()
-            await profileViewModel.refreshFriends()
         }
         .confirmationDialog("アイコンを選ぶ", isPresented: $isShowingIconSourceOptions, titleVisibility: .visible) {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -205,25 +148,6 @@ struct AccountView: View {
                 iconPickerSource = nil
             }
         }
-        .fullScreenCover(isPresented: $isShowingQRScanner) {
-            QRCodeScannerView { code in
-                isShowingQRScanner = false
-                profileViewModel.friendCode = code
-                Task {
-                    if await profileViewModel.addFriend() {
-                        isShowingFriendAddedAlert = true
-                    }
-                }
-            } onCancel: {
-                isShowingQRScanner = false
-            }
-            .ignoresSafeArea()
-        }
-        .alert("友達を追加しました。", isPresented: $isShowingFriendAddedAlert) {
-            Button("OK") {
-                isShowingFriendAddedAlert = false
-            }
-        }
     }
 
     @ViewBuilder
@@ -242,25 +166,6 @@ struct AccountView: View {
             Image(systemName: "person.crop.circle.fill")
                 .resizable().scaledToFit().foregroundStyle(.secondary)
                 .frame(width: 120, height: 120)
-        }
-    }
-
-    @ViewBuilder
-    private func friendIcon(url: URL?) -> some View {
-        if let url {
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ProgressView()
-            }
-            .frame(width: 44, height: 44)
-            .clipShape(Circle())
-        } else {
-            Image(systemName: "person.crop.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(.secondary)
-                .frame(width: 44, height: 44)
         }
     }
 
@@ -321,7 +226,7 @@ private struct ProfileIconPickerView: UIViewControllerRepresentable {
     }
 }
 
-private struct AccountPrimaryButtonStyle: ButtonStyle {
+struct AccountPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 17, weight: .semibold))

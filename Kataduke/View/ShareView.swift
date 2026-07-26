@@ -6,11 +6,30 @@
 //
 
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 struct ShareView: View {
+    private enum FriendSheet: Identifiable {
+        case myCode
+        case addFriend
+        case friends
+
+        var id: String {
+            switch self {
+            case .myCode:
+                return "myCode"
+            case .addFriend:
+                return "addFriend"
+            case .friends:
+                return "friends"
+            }
+        }
+    }
+
     @State private var records: [SharedCleaningRecord] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var friendSheet: FriendSheet?
     private let service = SharedCleaningRecordService()
 
     var body: some View {
@@ -32,6 +51,31 @@ struct ShareView: View {
                 }
             }
             .navigationTitle("Share")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            friendSheet = .myCode
+                        } label: {
+                            Label("マイコード", systemImage: "qrcode")
+                        }
+
+                        Button {
+                            friendSheet = .addFriend
+                        } label: {
+                            Label("友達登録", systemImage: "person.badge.plus")
+                        }
+
+                        Button {
+                            friendSheet = .friends
+                        } label: {
+                            Label("友達一覧", systemImage: "person.2")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
             .refreshable {
                 await loadRecords()
             }
@@ -46,6 +90,18 @@ struct ShareView: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .sheet(item: $friendSheet) { sheet in
+                NavigationStack {
+                    switch sheet {
+                    case .myCode:
+                        ShareMyCodeView()
+                    case .addFriend:
+                        ShareFriendRegistrationView()
+                    case .friends:
+                        ShareFriendListView()
+                    }
+                }
+            }
         }
     }
 
@@ -59,6 +115,214 @@ struct ShareView: View {
             records = try await service.fetchSharedRecords()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct ShareMyCodeView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var profileViewModel = UserProfileViewModel()
+    private let qrContext = CIContext()
+    private let qrFilter = CIFilter.qrCodeGenerator()
+
+    var body: some View {
+        Form {
+            Section("マイコード") {
+                VStack(spacing: 14) {
+                    if profileViewModel.accountCode.isEmpty {
+                        ProgressView()
+                    } else {
+                        qrCodeImage(for: profileViewModel.accountCode)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 190, height: 190)
+
+                        Text(profileViewModel.accountCode)
+                            .font(.system(size: 30, weight: .bold, design: .monospaced))
+                            .textSelection(.enabled)
+
+                        Text("このQRコードを友達に読み取ってもらうと、友達登録できます。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            }
+        }
+        .navigationTitle("マイコード")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("閉じる") {
+                    dismiss()
+                }
+            }
+        }
+        .task {
+            await profileViewModel.load()
+            await profileViewModel.prepareAccountCodeIfNeeded()
+        }
+    }
+
+    private func qrCodeImage(for text: String) -> Image {
+        qrFilter.message = Data(text.utf8)
+        qrFilter.correctionLevel = "M"
+
+        guard let outputImage = qrFilter.outputImage,
+              let cgImage = qrContext.createCGImage(outputImage, from: outputImage.extent) else {
+            return Image(systemName: "qrcode")
+        }
+        return Image(decorative: cgImage, scale: 1)
+    }
+}
+
+private struct ShareFriendRegistrationView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var profileViewModel = UserProfileViewModel()
+    @State private var isShowingQRScanner = false
+    @State private var isShowingFriendAddedAlert = false
+    @FocusState private var isFriendCodeFocused: Bool
+
+    var body: some View {
+        Form {
+            Section("友達登録") {
+                TextField("友達のアカウントコード", text: $profileViewModel.friendCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .focused($isFriendCodeFocused)
+
+                Button {
+                    isFriendCodeFocused = false
+                    isShowingQRScanner = true
+                } label: {
+                    Label("QRコードを読み取る", systemImage: "qrcode.viewfinder")
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            Section {
+                Button {
+                    isFriendCodeFocused = false
+                    Task {
+                        if await profileViewModel.addFriend() {
+                            isShowingFriendAddedAlert = true
+                        }
+                    }
+                } label: {
+                    if profileViewModel.isAddingFriend {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("友達を追加")
+                    }
+                }
+                .buttonStyle(SharePrimaryButtonStyle())
+                .disabled(profileViewModel.isAddingFriend || profileViewModel.friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+
+            if let errorMessage = profileViewModel.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+            }
+        }
+        .navigationTitle("友達登録")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("閉じる") {
+                    dismiss()
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $isShowingQRScanner) {
+            QRCodeScannerView { code in
+                isShowingQRScanner = false
+                profileViewModel.friendCode = code
+                Task {
+                    if await profileViewModel.addFriend() {
+                        isShowingFriendAddedAlert = true
+                    }
+                }
+            } onCancel: {
+                isShowingQRScanner = false
+            }
+            .ignoresSafeArea()
+        }
+        .alert("友達を追加しました。", isPresented: $isShowingFriendAddedAlert) {
+            Button("OK") {
+                isShowingFriendAddedAlert = false
+            }
+        }
+    }
+}
+
+private struct ShareFriendListView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var profileViewModel = UserProfileViewModel()
+
+    var body: some View {
+        Group {
+            if profileViewModel.isLoading {
+                ProgressView()
+            } else {
+                List {
+                    if profileViewModel.friends.isEmpty {
+                        Text("まだ友達がいません")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(profileViewModel.friends) { friend in
+                            HStack(spacing: 12) {
+                                friendIcon(url: friend.iconURL)
+                                Text(friend.name)
+                                    .font(.headline)
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+
+                    if let errorMessage = profileViewModel.errorMessage {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+        }
+        .navigationTitle("友達一覧")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("閉じる") {
+                    dismiss()
+                }
+            }
+        }
+        .task {
+            await profileViewModel.load()
+            await profileViewModel.refreshFriends()
+        }
+    }
+
+    @ViewBuilder
+    private func friendIcon(url: URL?) -> some View {
+        if let url {
+            AsyncImage(url: url) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                ProgressView()
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(Circle())
+        } else {
+            Image(systemName: "person.crop.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
         }
     }
 }
@@ -101,6 +365,19 @@ private struct SharedRecordRowView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 48, height: 48)
         }
+    }
+}
+
+private struct SharePrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 
