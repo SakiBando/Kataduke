@@ -13,6 +13,9 @@ struct HomeView: View {
     @State private var resumeDraft: DraftCleaningSession?
     @State private var resumeBeforeImageData: Data?
     @State private var isShowingResume = false
+    @State private var moodPlaybackSource: PlaybackSource?
+    @State private var isShowingMoodCleaning = false
+    @State private var subscriptionAlertMessage: String?
     
     var body: some View {
         NavigationStack {
@@ -134,14 +137,16 @@ struct HomeView: View {
                             title: "Relaxing",
                             systemImage: "leaf.fill",
                             imageColor: Color(red: 126 / 255, green: 203 / 255, blue: 86 / 255),
-                            backgroundColor: Color(red: 190 / 255, green: 226 / 255, blue: 207 / 255)
+                            backgroundColor: Color(red: 190 / 255, green: 226 / 255, blue: 207 / 255),
+                            searchTerm: "リラックス"
                         )
 
                         moodCard(
-                            title: "Hardcore",
+                            title: "Uptempo",
                             systemImage: "sun.max.fill",
                             imageColor: Color(red: 1, green: 110 / 255, blue: 36 / 255),
-                            backgroundColor: Color(red: 250 / 255, green: 200 / 255, blue: 170 / 255)
+                            backgroundColor: Color(red: 250 / 255, green: 200 / 255, blue: 170 / 255),
+                            searchTerm: "集中"
                         )
                     }
                     .padding(.top, 8)
@@ -161,6 +166,22 @@ struct HomeView: View {
                 }
             }
             .background(homeBackground)
+            .fullScreenCover(isPresented: $isShowingMoodCleaning) {
+                if let moodPlaybackSource {
+                    CleaningSessionFlowView(playbackSource: moodPlaybackSource) {
+                        self.moodPlaybackSource = nil
+                        isShowingMoodCleaning = false
+                    }
+                }
+            }
+            .alert("Apple Music", isPresented: Binding(
+                get: { subscriptionAlertMessage != nil },
+                set: { if !$0 { subscriptionAlertMessage = nil } }
+            )) {
+                Button("OK") { subscriptionAlertMessage = nil }
+            } message: {
+                Text(subscriptionAlertMessage ?? "")
+            }
         }
     }
 
@@ -269,14 +290,24 @@ struct HomeView: View {
         title: String,
         systemImage: String,
         imageColor: Color,
-        backgroundColor: Color
+        backgroundColor: Color,
+        searchTerm: String
     ) -> some View {
         Button {
+            Task {
+                await startMoodCleaning(searchTerm: searchTerm)
+            }
         } label: {
             VStack(alignment: .leading, spacing: 28) {
-                Text(title)
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(.primary)
+                HStack {
+                    Text(title)
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if viewModel.isLoadingMoodPlaylist {
+                        ProgressView()
+                    }
+                }
 
                 HStack(alignment: .bottom) {
                     Image(systemName: systemImage)
@@ -295,11 +326,23 @@ struct HomeView: View {
             .background(backgroundColor)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .disabled(viewModel.isLoadingMoodPlaylist)
         .buttonStyle(.plain)
     }
 
     private var homeBackground: Color {
         Color(red: 253 / 255, green: 253 / 255, blue: 250 / 255)
+    }
+
+    @MainActor
+    private func startMoodCleaning(searchTerm: String) async {
+        let tracks = await viewModel.fetchMoodPlaylistTracks(searchTerm: searchTerm)
+        guard !tracks.isEmpty else {
+            subscriptionAlertMessage = viewModel.moodPlaylistErrorMessage ?? "Apple Musicに登録してください。"
+            return
+        }
+        moodPlaybackSource = .appleMusic(tracks)
+        isShowingMoodCleaning = true
     }
 
     private func resumePlaybackSource(

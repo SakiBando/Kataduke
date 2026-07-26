@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class UserProfileViewModel: ObservableObject {
     @Published var name = ""
-    @Published var age = ""
+    @Published var email = ""
     @Published var iconImage: UIImage?
     @Published var iconURL: URL?
     @Published var accountCode = ""
@@ -20,7 +20,9 @@ final class UserProfileViewModel: ObservableObject {
     private let service = UserProfileService()
 
     func load() async {
-        guard let userID = Auth.auth().currentUser?.uid else { return }
+        guard let user = Auth.auth().currentUser else { return }
+        let userID = user.uid
+        email = user.email ?? ""
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -28,7 +30,6 @@ final class UserProfileViewModel: ObservableObject {
         do {
             guard let profile = try await service.fetchProfile(userID: userID) else { return }
             name = profile.name
-            age = profile.age > 0 ? String(profile.age) : ""
             iconURL = profile.iconURL
             accountCode = profile.accountCode
             try await loadFriends(userID: userID)
@@ -38,17 +39,15 @@ final class UserProfileViewModel: ObservableObject {
     }
 
     func save() async {
-        guard let userID = Auth.auth().currentUser?.uid else {
+        guard let user = Auth.auth().currentUser else {
             errorMessage = "ログイン情報を確認できませんでした。"
             return
         }
+        let userID = user.uid
+        email = user.email ?? ""
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
             errorMessage = "名前を入力してください。"
-            return
-        }
-        guard let ageValue = Int(age), (1...120).contains(ageValue) else {
-            errorMessage = "年齢は1〜120の数字で入力してください。"
             return
         }
 
@@ -61,11 +60,9 @@ final class UserProfileViewModel: ObservableObject {
             let profile = try await service.saveProfile(
                 userID: userID,
                 name: trimmedName,
-                age: ageValue,
                 iconImage: iconImage
             )
             name = profile.name
-            age = String(profile.age)
             iconURL = profile.iconURL
             accountCode = profile.accountCode
             iconImage = nil
@@ -84,10 +81,10 @@ final class UserProfileViewModel: ObservableObject {
         }
     }
 
-    func addFriend() async {
+    func addFriend() async -> Bool {
         guard let userID = Auth.auth().currentUser?.uid else {
             errorMessage = "ログイン情報を確認できませんでした。"
-            return
+            return false
         }
 
         isAddingFriend = true
@@ -99,9 +96,10 @@ final class UserProfileViewModel: ObservableObject {
             try await service.addFriend(currentUserID: userID, friendCode: friendCode)
             friendCode = ""
             try await loadFriends(userID: userID)
-            message = "友達を追加しました。"
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 

@@ -4,6 +4,7 @@ import MusicKit
 protocol MusicService {
     func fetchSongs() async throws -> MusicItemCollection<Song>
     func fetchLibraryPlaylists() async throws -> MusicItemCollection<Playlist>
+    func fetchCatalogPlaylistTracks(searchTerm: String) async throws -> [Track]
 }
 
 
@@ -31,5 +32,19 @@ class MusicServiceImpl: MusicService {
         }
         return MusicItemCollection(playlistsWithTracks)
     }
-}
 
+    func fetchCatalogPlaylistTracks(searchTerm: String) async throws -> [Track] {
+        var request = MusicCatalogSearchRequest(term: searchTerm, types: [Playlist.self])
+        request.limit = 10
+        let response = try await request.response()
+
+        for playlist in response.playlists {
+            let detailedPlaylist = try await playlist.with(.tracks)
+            let tracks = Array(detailedPlaylist.tracks ?? [])
+            if !tracks.isEmpty {
+                return tracks
+            }
+        }
+        return []
+    }
+}

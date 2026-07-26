@@ -21,7 +21,10 @@ struct ResultView: View {
     @Environment(\.modelContext) var context
     @State private var evaluation: CleanupEvaluation?
     @State private var isEvaluating = false
+    @State private var isSaving = false
     @State private var evaluationError: String?
+    @State private var saveError: String?
+    private let sharedRecordService = SharedCleaningRecordService()
 
     
     var body: some View {
@@ -54,22 +57,39 @@ struct ResultView: View {
 
                     VStack(spacing: 22) {
                         Button {
-                            saveImage()
+                            Task { await saveImage(shouldShare: true) }
                         } label: {
-                            Text("共有して保存")
+                            if isSaving {
+                                ProgressView()
+                            } else {
+                                Text("共有して保存")
+                            }
                         }
                         .buttonStyle(ResultPrimaryButtonStyle())
+                        .disabled(isSaving)
 
                         Button {
-                            saveImage()
+                            Task { await saveImage(shouldShare: false) }
                         } label: {
-                            Text("共有せずに保存")
+                            if isSaving {
+                                ProgressView()
+                            } else {
+                                Text("共有せずに保存")
+                            }
                         }
                         .buttonStyle(ResultPrimaryButtonStyle())
+                        .disabled(isSaving)
                     }
                     .padding(.horizontal, 70)
                     .padding(.top, 28)
                     .padding(.bottom, 24)
+
+                    if let saveError {
+                        Text(saveError)
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -188,11 +208,16 @@ struct ResultView: View {
     }
     
     
-    func saveImage() {
+    @MainActor
+    func saveImage(shouldShare: Bool) async {
         guard beforeImage != nil || afterImage != nil else {
             print("images not found")
             return
         }
+        isSaving = true
+        saveError = nil
+        defer { isSaving = false }
+
         let beforeImageData = beforeImage?.jpegData(compressionQuality: 0.8)
         let afterImageData = afterImage?.jpegData(compressionQuality: 0.8)
         let playedTracksData = try? JSONEncoder().encode(playedTracks)
@@ -206,6 +231,24 @@ struct ResultView: View {
             improvementScore: evaluation?.improvementScore
         )
         context.insert(record)
+
+        if shouldShare {
+            do {
+                try await sharedRecordService.shareRecord(
+                    elapsedTime: resultTimer,
+                    beforeImage: beforeImage,
+                    afterImage: afterImage,
+                    playedTracks: playedTracks,
+                    beforeTidinessScore: evaluation?.clampedBeforeScore,
+                    afterTidinessScore: evaluation?.clampedAfterScore,
+                    improvementScore: evaluation?.improvementScore
+                )
+            } catch {
+                context.delete(record)
+                saveError = error.localizedDescription
+                return
+            }
+        }
         
         print("[ResultView] save complete. Returning HomeView")
         onFinishFlow()

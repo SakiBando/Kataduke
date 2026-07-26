@@ -11,6 +11,8 @@ class MusicViewModel: ObservableObject {
     @Published var localPlaylists: [MPMediaPlaylist] = []
     @Published var canPlayCatalogContent: Bool = false
     @Published var authorizationStatus: MusicAuthorization.Status = .notDetermined
+    @Published var isLoadingMoodPlaylist = false
+    @Published var moodPlaylistErrorMessage: String?
     
     init(musicService: MusicService) {
         self.musicService = musicService
@@ -68,6 +70,48 @@ class MusicViewModel: ObservableObject {
             }
         } catch {
             print(error)
+        }
+    }
+
+    func fetchMoodPlaylistTracks(searchTerm: String) async -> [Track] {
+        guard authorizationStatus == .authorized else {
+            await authorize()
+            guard authorizationStatus == .authorized else {
+                moodPlaylistErrorMessage = "Apple Musicへのアクセスを許可してください。"
+                return []
+            }
+            return await fetchMoodPlaylistTracks(searchTerm: searchTerm)
+        }
+
+        let canPlay = await fetchSubscriptionStatus()
+        guard canPlay else {
+            moodPlaylistErrorMessage = "Apple Musicに登録してください。"
+            return []
+        }
+
+        DispatchQueue.main.async {
+            self.isLoadingMoodPlaylist = true
+            self.moodPlaylistErrorMessage = nil
+        }
+        defer {
+            DispatchQueue.main.async {
+                self.isLoadingMoodPlaylist = false
+            }
+        }
+
+        do {
+            let tracks = try await musicService.fetchCatalogPlaylistTracks(searchTerm: searchTerm)
+            if tracks.isEmpty {
+                DispatchQueue.main.async {
+                    self.moodPlaylistErrorMessage = "プレイリストの曲を取得できませんでした。"
+                }
+            }
+            return tracks
+        } catch {
+            DispatchQueue.main.async {
+                self.moodPlaylistErrorMessage = error.localizedDescription
+            }
+            return []
         }
     }
 

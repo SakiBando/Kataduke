@@ -21,9 +21,9 @@ struct ContentView: View {
                     MemoriesView()
                 }
             }
-            Tab("RANKING",systemImage: "crown"){
+            Tab("SHARE",systemImage: "globe"){
                 NavigationStack {
-                    RankingView()
+                    ShareView()
                 }
             }
             Tab("ACCOUNT", systemImage: "person.circle") {

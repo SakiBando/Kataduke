@@ -12,13 +12,12 @@ struct UserProfileService {
         guard let data = snapshot.data() else { return nil }
 
         let name = data["name"] as? String ?? ""
-        let age = data["age"] as? Int ?? 0
         let iconURL = (data["iconURL"] as? String).flatMap(URL.init(string:))
         let accountCode = data["accountCode"] as? String ?? makeAccountCode(from: userID)
-        return UserProfile(name: name, age: age, iconURL: iconURL, accountCode: accountCode)
+        return UserProfile(name: name, iconURL: iconURL, accountCode: accountCode)
     }
 
-    func saveProfile(userID: String, name: String, age: Int, iconImage: UIImage?) async throws -> UserProfile {
+    func saveProfile(userID: String, name: String, iconImage: UIImage?) async throws -> UserProfile {
         let accountCode = try await ensureAccountCode(userID: userID)
         var iconURL: URL?
         if let iconImage {
@@ -29,10 +28,10 @@ struct UserProfileService {
 
         var values: [String: Any] = [
             "name": name,
-            "age": age,
             "accountCode": accountCode,
             "updatedAt": FieldValue.serverTimestamp()
         ]
+        values["age"] = FieldValue.delete()
         if let iconURL {
             values["iconURL"] = iconURL.absoluteString
         }
@@ -42,7 +41,7 @@ struct UserProfileService {
             "userID": userID,
             "updatedAt": FieldValue.serverTimestamp()
         ], merge: true)
-        return UserProfile(name: name, age: age, iconURL: iconURL, accountCode: accountCode)
+        return UserProfile(name: name, iconURL: iconURL, accountCode: accountCode)
     }
 
     func ensureAccountCode(userID: String) async throws -> String {
@@ -89,15 +88,27 @@ struct UserProfileService {
             throw UserProfileError.friendProfileNotFound
         }
 
-        try await database
+        let batch = database.batch()
+        let currentUserFriendReference = database
             .collection("users")
             .document(currentUserID)
             .collection("friends")
             .document(friendUserID)
-            .setData([
-                "friendUserID": friendUserID,
-                "createdAt": FieldValue.serverTimestamp()
-            ], merge: true)
+        let friendUserFriendReference = database
+            .collection("users")
+            .document(friendUserID)
+            .collection("friends")
+            .document(currentUserID)
+
+        batch.setData([
+            "friendUserID": friendUserID,
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: currentUserFriendReference, merge: true)
+        batch.setData([
+            "friendUserID": currentUserID,
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: friendUserFriendReference, merge: true)
+        try await batch.commit()
     }
 
     func fetchFriends(userID: String) async throws -> [FriendProfile] {
