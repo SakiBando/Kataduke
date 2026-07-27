@@ -18,6 +18,7 @@ struct CleaningView: View{
     let initialSecondsElapsed: Double
     let isResumeMode: Bool
     var onCompleteCleaning: (Double, [PlayedTrackInfo]) -> Void
+    var onSaveDraftFlow: () -> Void
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) private var context
     @State private var timer: Timer?
@@ -28,6 +29,7 @@ struct CleaningView: View{
     @State private var volume: Double = 0.58
     @State private var playedTracks: [PlayedTrackInfo] = []
     @State private var playedTrackIDs: Set<String> = []
+    @State private var currentPlayedTrack: PlayedTrackInfo?
     
     init(
         beforeImage: Binding<UIImage?>,
@@ -36,6 +38,7 @@ struct CleaningView: View{
         initialSecondsElapsed: Double = 0,
         isResumeMode: Bool = false,
         onCompleteCleaning: @escaping (Double, [PlayedTrackInfo]) -> Void,
+        onSaveDraftFlow: @escaping () -> Void,
         onFinishFlow: @escaping () -> Void
     ) {
         self._beforeImage = beforeImage
@@ -44,6 +47,7 @@ struct CleaningView: View{
         self.initialSecondsElapsed = initialSecondsElapsed
         self.isResumeMode = isResumeMode
         self.onCompleteCleaning = onCompleteCleaning
+        self.onSaveDraftFlow = onSaveDraftFlow
         self.onFinishFlow = onFinishFlow
         self._secondsElapsed = State(initialValue: initialSecondsElapsed)
         self._isSongPrepared = State(initialValue: isResumeMode)
@@ -131,12 +135,12 @@ struct CleaningView: View{
                     .buttonStyle(CleaningPrimaryButtonStyle())
                     .alert("仮保存しますか", isPresented: $isShowAlert) {
                         Button("戻る"){}
-                        Button("仮保存する"){
-                            saveDraft()
-                            pause()
-                            onFinishFlow()
-                        }
+                    Button("仮保存する"){
+                        saveDraft()
+                        pause()
+                        onSaveDraftFlow()
                     }
+                }
 
                     Button("完了") {
                         let completedSecondsElapsed = secondsElapsed
@@ -177,8 +181,7 @@ struct CleaningView: View{
                 .frame(width: 238, height: 238)
                 .rotationEffect(.degrees(-90))
 
-            Text(String(format: "%.2f", secondsElapsed))
-                .font(.system(size: 46, weight: .bold))
+            StopwatchTimeText(secondsElapsed: secondsElapsed)
                 .foregroundStyle(.primary)
         }
         .frame(width: 250, height: 250)
@@ -213,8 +216,11 @@ struct CleaningView: View{
         print("[CleaningView] start timer")
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            secondsElapsed += 0.1
-            recordCurrentTrack()
+            Task { @MainActor in
+                secondsElapsed += 0.1
+                recordCurrentTrack()
+                updateCurrentTrackDisplay()
+            }
         }
         isRunning = true
         playOrResumeSelectedSong()
@@ -277,18 +283,26 @@ struct CleaningView: View{
     private func skipToNext() {
         switch playbackSource {
         case .appleMusic:
-            Task { try? await ApplicationMusicPlayer.shared.skipToNextEntry() }
+            Task {
+                try? await ApplicationMusicPlayer.shared.skipToNextEntry()
+                await updateCurrentTrackDisplayAfterSkip()
+            }
         case .local:
             MPMusicPlayerController.applicationQueuePlayer.skipToNextItem()
+            updateCurrentTrackDisplayAfterLocalSkip()
         }
     }
 
     private func skipToPrevious() {
         switch playbackSource {
         case .appleMusic:
-            Task { try? await ApplicationMusicPlayer.shared.skipToPreviousEntry() }
+            Task {
+                try? await ApplicationMusicPlayer.shared.skipToPreviousEntry()
+                await updateCurrentTrackDisplayAfterSkip()
+            }
         case .local:
             MPMusicPlayerController.applicationQueuePlayer.skipToPreviousItem()
+            updateCurrentTrackDisplayAfterLocalSkip()
         }
     }
     
@@ -338,6 +352,7 @@ struct CleaningView: View{
             player.queue = .init(for: tracks)
             try? await player.play()
             recordCurrentTrack()
+            updateCurrentTrackDisplay()
         case .local(let items):
             guard !items.isEmpty else {
                 print("[CleaningView] no local tracks available")
@@ -348,6 +363,7 @@ struct CleaningView: View{
             player.repeatMode = .all
             player.play()
             recordCurrentTrack()
+            updateCurrentTrackDisplay()
         }
     }
 
@@ -357,9 +373,11 @@ struct CleaningView: View{
         case .appleMusic:
             try? await ApplicationMusicPlayer.shared.play()
             recordCurrentTrack()
+            updateCurrentTrackDisplay()
         case .local:
             MPMusicPlayerController.applicationQueuePlayer.play()
             recordCurrentTrack()
+            updateCurrentTrackDisplay()
         }
     }
 
@@ -369,6 +387,48 @@ struct CleaningView: View{
             recordAppleMusicTrack()
         case .local:
             recordLocalTrack()
+        }
+    }
+
+    @MainActor
+    private func updateCurrentTrackDisplay() {
+        currentPlayedTrack = currentPlaybackTrackInfo()
+    }
+
+    @MainActor
+    private func updateCurrentTrackDisplayAfterSkip() async {
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        recordCurrentTrack()
+        updateCurrentTrackDisplay()
+    }
+
+    private func updateCurrentTrackDisplayAfterLocalSkip() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            recordCurrentTrack()
+            updateCurrentTrackDisplay()
+        }
+    }
+
+    private func currentPlaybackTrackInfo() -> PlayedTrackInfo? {
+        switch playbackSource {
+        case .appleMusic:
+            guard let track = ApplicationMusicPlayer.shared.queue.currentEntry?.item as? Track else {
+                return nil
+            }
+            return PlayedTrackInfo(
+                id: track.id.rawValue,
+                title: track.title,
+                artistName: track.artistName
+            )
+        case .local:
+            guard let item = MPMusicPlayerController.applicationQueuePlayer.nowPlayingItem else {
+                return nil
+            }
+            return PlayedTrackInfo(
+                id: String(item.persistentID),
+                title: item.title ?? "Unknown",
+                artistName: item.artist ?? ""
+            )
         }
     }
 
@@ -399,12 +459,16 @@ struct CleaningView: View{
     }
 
     private func appendPlayedTrackIfNeeded(_ track: PlayedTrackInfo) {
+        currentPlayedTrack = track
         guard playedTrackIDs.contains(track.id) == false else { return }
         playedTrackIDs.insert(track.id)
         playedTracks.append(track)
     }
 
     private var currentTrackTitle: String {
+        if let currentPlayedTrack {
+            return currentPlayedTrack.title
+        }
         switch playbackSource {
         case .appleMusic(let tracks):
             return tracks.first?.title ?? "曲名がありません"
@@ -414,12 +478,40 @@ struct CleaningView: View{
     }
 
     private var currentTrackArtistName: String? {
+        if let currentPlayedTrack {
+            return currentPlayedTrack.artistName
+        }
         switch playbackSource {
         case .appleMusic(let tracks):
             return tracks.first?.artistName
         case .local(let items):
             return items.first?.artist
         }
+    }
+
+}
+
+private struct StopwatchTimeText: View {
+    let secondsElapsed: Double
+
+    var body: some View {
+        Text(timeText)
+            .font(.system(size: secondsElapsed >= 3600 ? 32 : 43, weight: .bold, design: .monospaced))
+            .minimumScaleFactor(0.72)
+            .lineLimit(1)
+            .frame(width: 205)
+    }
+
+    private var timeText: String {
+        let totalSeconds = max(0, Int(secondsElapsed.rounded(.down)))
+        let centiseconds = max(0, Int((secondsElapsed - Double(totalSeconds)) * 100))
+        let seconds = totalSeconds % 60
+        let minutes = (totalSeconds / 60) % 60
+        if totalSeconds >= 3600 {
+            let hours = totalSeconds / 3600
+            return String(format: "%02d:%02d:%02d.%02d", hours, minutes, seconds, centiseconds)
+        }
+        return String(format: "%02d:%02d.%02d", minutes, seconds, centiseconds)
     }
 }
 

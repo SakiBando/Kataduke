@@ -67,7 +67,10 @@ struct HomeView: View {
                                 playbackSource: playbackSource,
                                 initialBeforeImage: resumeBeforeImageData.flatMap(UIImage.init(data:)),
                                 initialSecondsElapsed: resumeDraft?.elapsedTime ?? 0,
-                                isResumeMode: true
+                                isResumeMode: true,
+                                onSaveDraftFlow: {
+                                    isShowingResume = false
+                                }
                             ) {
                                 clearDraft()
                                 isShowingResume = false

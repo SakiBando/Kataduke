@@ -12,6 +12,7 @@ struct CleaningSessionFlowView: View {
     let initialSecondsElapsed: Double
     let isResumeMode: Bool
     let initialBeforeImage: UIImage?
+    var onSaveDraftFlow: () -> Void
     var onFinishFlow: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -26,12 +27,14 @@ struct CleaningSessionFlowView: View {
         initialBeforeImage: UIImage? = nil,
         initialSecondsElapsed: Double = 0,
         isResumeMode: Bool = false,
+        onSaveDraftFlow: (() -> Void)? = nil,
         onFinishFlow: @escaping () -> Void
     ) {
         self.playbackSource = playbackSource
         self.initialBeforeImage = initialBeforeImage
         self.initialSecondsElapsed = initialSecondsElapsed
         self.isResumeMode = isResumeMode
+        self.onSaveDraftFlow = onSaveDraftFlow ?? onFinishFlow
         self.onFinishFlow = onFinishFlow
         self._beforeImage = State(initialValue: initialBeforeImage)
         self._afterImage = State(initialValue: nil)
@@ -70,7 +73,8 @@ struct CleaningSessionFlowView: View {
             playbackSource: playbackSource,
             initialSecondsElapsed: initialSecondsElapsed,
             isResumeMode: isResumeMode,
-            onCompleteCleaning: completeCleaning
+            onCompleteCleaning: completeCleaning,
+            onSaveDraftFlow: saveDraftAndDismiss
         ) {
             onFinishFlow()
             dismiss()
@@ -121,5 +125,10 @@ struct CleaningSessionFlowView: View {
         self.playedTracks = playedTracks
         afterImage = nil
         phase = .afterCamera
+    }
+
+    private func saveDraftAndDismiss() {
+        onSaveDraftFlow()
+        dismiss()
     }
 }
