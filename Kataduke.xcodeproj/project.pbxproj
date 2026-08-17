@@ -287,6 +287,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Kataduke/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "アプリ内で音楽を使用します";
 				INFOPLIST_KEY_NSCameraUsageDescription = "アプリ内で撮影機能に使用します";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "画像を保存";
@@ -320,6 +321,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Kataduke/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "アプリ内で音楽を使用します";
 				INFOPLIST_KEY_NSCameraUsageDescription = "アプリ内で撮影機能に使用します";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "画像を保存";

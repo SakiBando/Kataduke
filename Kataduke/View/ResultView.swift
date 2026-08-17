@@ -96,9 +96,6 @@ struct ResultView: View {
             }
             .background(resultBackground)
             .navigationBarBackButtonHidden(true)
-            .onAppear() {
-                fetchTimer()
-            }
             .task {
                 await evaluateCleanupIfNeeded()
             }
@@ -256,10 +253,6 @@ struct ResultView: View {
         onFinishFlow()
     }
     
-    func fetchTimer() {
-            resultTimer = UserDefaults.standard.double(forKey: "saki-chan")
-        }
-
     private var resultBackground: Color {
         Color(red: 253 / 255, green: 253 / 255, blue: 250 / 255)
     }
