@@ -117,8 +117,8 @@ struct SharedCleaningRecordService {
                 }
                 return PlayedTrackInfo(id: id, title: title, artistName: artistName)
             }
-            let likesSnapshot = try await document.reference.collection("likes").getDocuments()
-            let isLikedByCurrentUser = likesSnapshot.documents.contains { $0.documentID == currentUserID }
+            let likesDocuments = (try? await document.reference.collection("likes").getDocuments())?.documents ?? []
+            let isLikedByCurrentUser = likesDocuments.contains { $0.documentID == currentUserID }
 
             records.append(SharedCleaningRecord(
                 id: document.documentID,
@@ -133,7 +133,7 @@ struct SharedCleaningRecordService {
                 beforeTidinessScore: data["beforeTidinessScore"] as? Int,
                 afterTidinessScore: data["afterTidinessScore"] as? Int,
                 improvementScore: data["improvementScore"] as? Int,
-                likeCount: likesSnapshot.documents.count,
+                likeCount: likesDocuments.count,
                 isLikedByCurrentUser: isLikedByCurrentUser
             ))
         }

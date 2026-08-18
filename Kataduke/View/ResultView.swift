@@ -29,70 +29,91 @@ struct ResultView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Button {
-                        onFinishFlow()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 32, weight: .regular))
-                            .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 8)
-
-                    Text(String(format: "%.2f", resultTimer))
-                        .font(.system(size: 78, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, -8)
-
-                    HStack(alignment: .top, spacing: 18) {
-                        resultImageView(image: beforeImage, title: "Before")
-                        resultImageView(image: afterImage, title: "After")
-                    }
-
-                    evaluationSection
-                    playedTracksSection
-
-                    VStack(spacing: 22) {
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
                         Button {
-                            Task { await saveImage(shouldShare: true) }
+                            onFinishFlow()
                         } label: {
-                            if isSaving {
-                                ProgressView()
-                            } else {
-                                Text("共有して保存")
-                            }
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 30, weight: .regular))
+                                .foregroundStyle(.primary)
                         }
-                        .buttonStyle(ResultPrimaryButtonStyle())
-                        .disabled(isSaving)
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
 
-                        Button {
-                            Task { await saveImage(shouldShare: false) }
-                        } label: {
-                            if isSaving {
-                                ProgressView()
-                            } else {
-                                Text("共有せずに保存")
+                        VStack(spacing: 8) {
+                            Image(systemName: "house")
+                                .font(.system(size: 34, weight: .light))
+                                .foregroundStyle(resultMint)
+                            HStack(spacing: 8) {
+                                Image(systemName: "leaf.fill")
+                                Text("Today’s Cleaning")
+                                Image(systemName: "leaf.fill")
                             }
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(resultMint)
                         }
-                        .buttonStyle(ResultPrimaryButtonStyle())
-                        .disabled(isSaving)
-                    }
-                    .padding(.horizontal, 70)
-                    .padding(.top, 28)
-                    .padding(.bottom, 24)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, -4)
 
-                    if let saveError {
-                        Text(saveError)
-                            .font(.subheadline)
-                            .foregroundStyle(.red)
+                        Text(formattedDuration(resultTimer))
+                            .font(.system(size: 68, weight: .bold, design: .rounded))
+                            .foregroundStyle(resultMint)
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, -8)
+
+                        HStack(alignment: .top, spacing: 12) {
+                            resultImageView(image: beforeImage, title: "Before")
+                            resultImageView(image: afterImage, title: "After")
+                        }
+
+                        HStack(alignment: .top, spacing: 12) {
+                            playedTracksSection
+                            evaluationSection
+                        }
+
+                        VStack(spacing: 14) {
+                            Button {
+                                Task { await saveImage(shouldShare: true) }
+                            } label: {
+                                if isSaving {
+                                    ProgressView()
+                                } else {
+                                    Label("Share & Save", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                            .buttonStyle(ResultPrimaryButtonStyle())
+                            .disabled(isSaving)
+
+                            Button {
+                                Task { await saveImage(shouldShare: false) }
+                            } label: {
+                                if isSaving {
+                                    ProgressView()
+                                } else {
+                                    Text("Save only")
+                                }
+                            }
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(resultMint)
+                            .disabled(isSaving)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.top, 18)
+                        .padding(.bottom, 24)
+
+                        if let saveError {
+                            Text(saveError)
+                                .font(.subheadline)
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
+                    .frame(width: min(geometry.size.width - 28, 390), alignment: .center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
             .background(resultBackground)
             .navigationBarBackButtonHidden(true)
@@ -105,24 +126,33 @@ struct ResultView: View {
     @ViewBuilder
     private var playedTracksSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("再生した曲")
-                .font(.system(size: 30, weight: .bold))
+            Label("Played songs", systemImage: "music.note")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(resultMint)
 
             if playedTracks.isEmpty {
                 Text("曲がありません")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(playedTracks.prefix(2)) { track in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.title)
-                            .font(.system(size: 24, weight: .semibold))
-                            .lineLimit(1)
-                        if !track.artistName.isEmpty {
-                            Text(track.artistName)
-                                .font(.system(size: 21, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(resultMint)
+                            .frame(width: 34, height: 34)
+                            .background(resultMint.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(track.title)
+                                .font(.system(size: 12, weight: .semibold))
                                 .lineLimit(1)
+                            if !track.artistName.isEmpty {
+                                Text(track.artistName)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -130,11 +160,11 @@ struct ResultView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 156, alignment: .topLeading)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
+        .frame(height: 196, alignment: .topLeading)
+        .padding(12)
         .background(resultCardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(resultMint.opacity(0.28), lineWidth: 1))
     }
     
     private func scoreRow(title: String, score: Int) -> some View {
@@ -148,8 +178,9 @@ struct ResultView: View {
     @ViewBuilder
     private var evaluationSection: some View {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Gemini評価")
-                    .font(.system(size: 30, weight: .bold))
+                Label("Score", systemImage: "sparkles")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(resultMint)
                 
                 if isEvaluating {
                     HStack(spacing: 12) {
@@ -158,12 +189,16 @@ struct ResultView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else if let evaluation {
-                    VStack(alignment: .trailing, spacing: 12) {
-                        scoreRow(title: "片付け前", score: evaluation.clampedBeforeScore)
-                        scoreRow(title: "片付け後", score: evaluation.clampedAfterScore)
-                        scoreRow(title: "改善度", score: evaluation.improvementScore)
+                    VStack(spacing: 10) {
+                        resultScoreLine("Before", evaluation.clampedBeforeScore, color: .secondary)
+                        Divider()
+                        resultScoreLine("After", evaluation.clampedAfterScore, color: resultMint)
+                        Divider()
+                        Text("+\(evaluation.improvementScore)")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(resultYellow)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let evaluationError {
                     Text(evaluationError)
                         .font(.subheadline)
@@ -171,30 +206,42 @@ struct ResultView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(minHeight: 160, alignment: .topLeading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 18)
+            .frame(height: 196, alignment: .topLeading)
+            .padding(12)
             .background(resultCardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).stroke(resultMint.opacity(0.28), lineWidth: 1))
         }
+
+    private func resultScoreLine(_ title: String, _ score: Int, color: Color) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+            Spacer()
+            Text("\(score)")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(color)
+        }
+    }
     
     @ViewBuilder
     func resultImageView(image: UIImage?, title: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity)
-                    .frame(height: 168)
+                    .frame(height: 170)
                     .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
             } else {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(resultCardBackground)
-                    .frame(height: 168)
+                    .frame(height: 170)
                     .overlay {
                         Image(systemName: "photo")
                             .foregroundColor(.gray)
@@ -258,7 +305,22 @@ struct ResultView: View {
     }
 
     private var resultCardBackground: Color {
-        Color(red: 214 / 255, green: 214 / 255, blue: 214 / 255)
+        Color.white.opacity(0.82)
+    }
+
+    private var resultMint: Color {
+        Color(red: 69 / 255, green: 166 / 255, blue: 145 / 255)
+    }
+
+    private var resultYellow: Color {
+        Color(red: 244 / 255, green: 185 / 255, blue: 70 / 255)
+    }
+
+    private func formattedDuration(_ seconds: Double) -> String {
+        let totalSeconds = max(0, Int(seconds.rounded(.down)))
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
     
     @MainActor
@@ -290,11 +352,21 @@ private struct ResultPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color(red: 218 / 255, green: 143 / 255, blue: 24 / 255))
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .frame(height: 60)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 255 / 255, green: 244 / 255, blue: 213 / 255),
+                        Color(red: 247 / 255, green: 198 / 255, blue: 91 / 255).opacity(0.55)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color(red: 244 / 255, green: 185 / 255, blue: 70 / 255), lineWidth: 1.5))
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

@@ -46,9 +46,12 @@ struct MemoriesView: View {
                             }
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
             .navigationTitle("これまでの記録")
+            .background(recordBackground)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -121,13 +124,37 @@ private struct MemoryRowView: View {
     let memory: SelectedImage
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(memory.createdAt.formatted(date: .abbreviated, time: .shortened))
-                .font(.headline)
-            Text("総時間 \(String(format: "%.2f", memory.elapsedTime)) 秒")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(recordMint.opacity(0.12))
+                Image(systemName: "sparkles")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(recordMint)
+            }
+            .frame(width: 62, height: 62)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(memory.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(recordText)
+                Text("総時間 \(formattedDuration(memory.elapsedTime))")
+                    .font(.subheadline)
+                    .foregroundStyle(recordMint)
+                if let improvementScore = memory.improvementScore {
+                    Text("Score \(improvementScore > 0 ? "+" : "")\(improvementScore)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(recordYellow)
+                }
+            }
+            Spacer()
         }
+        .padding(12)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(recordMint.opacity(0.18), lineWidth: 1))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
         .padding(.vertical, 4)
     }
 }
@@ -143,12 +170,16 @@ private struct MemoryDetailView: View {
                     Text(memory.createdAt.formatted(date: .complete, time: .shortened))
                         .font(.title3)
                         .fontWeight(.semibold)
-                    Text("総時間 \(String(format: "%.2f", memory.elapsedTime)) 秒")
-                        .font(.headline)
+                        .foregroundStyle(recordText)
+                    Text("総時間 \(formattedDuration(memory.elapsedTime))")
+                        .font(.system(size: 46, weight: .bold, design: .rounded))
+                        .foregroundStyle(recordMint)
                 }
                 
-                scoreSummarySection
-                playedTracksSection
+                HStack(alignment: .top, spacing: 14) {
+                    playedTracksSection
+                    scoreSummarySection
+                }
                 
                 comparisonCard
                 
@@ -158,6 +189,7 @@ private struct MemoryDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
         }
+        .background(recordBackground)
         .navigationTitle("記録の詳細")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -165,44 +197,60 @@ private struct MemoryDetailView: View {
     @ViewBuilder
         private var scoreSummarySection: some View {
             if memory.beforeTidinessScore != nil || memory.afterTidinessScore != nil || memory.improvementScore != nil {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Gemini評価")
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Score", systemImage: "sparkles")
                         .font(.headline)
+                        .foregroundStyle(recordMint)
                     if let beforeScore = memory.beforeTidinessScore {
-                        Text("片付け前: \(beforeScore) 点")
+                        scoreLine("Before", beforeScore, color: .secondary)
                     }
                     if let afterScore = memory.afterTidinessScore {
-                        Text("片付け後: \(afterScore) 点")
+                        scoreLine("After", afterScore, color: recordMint)
                     }
                     if let improvementScore = memory.improvementScore {
-                        Text("改善度: \(improvementScore > 0 ? "+" : "")\(improvementScore)点")
+                        Text("\(improvementScore > 0 ? "+" : "")\(improvementScore)")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(recordYellow)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(Color.gray.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .frame(height: 190, alignment: .topLeading)
+                .padding(14)
+                .background(Color.white.opacity(0.82))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(recordMint.opacity(0.22), lineWidth: 1))
             }
         }
 
     @ViewBuilder
     private var playedTracksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("再生した曲")
+            Label("Played songs", systemImage: "music.note")
                 .font(.headline)
+                .foregroundStyle(recordMint)
 
             if memory.playedTracks.isEmpty {
                 Text("曲がありません")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(memory.playedTracks) { track in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.title)
-                            .fontWeight(.semibold)
-                        if !track.artistName.isEmpty {
-                            Text(track.artistName)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Image(systemName: "music.note")
+                            .foregroundStyle(recordMint)
+                            .frame(width: 30, height: 30)
+                            .background(recordMint.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            if !track.artistName.isEmpty {
+                                Text(track.artistName)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -210,9 +258,11 @@ private struct MemoryDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(height: 190, alignment: .topLeading)
+        .padding(14)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(recordMint.opacity(0.22), lineWidth: 1))
     }
     
     private var comparisonCard: some View {
@@ -232,7 +282,7 @@ private struct MemoryDetailView: View {
             sliderComparisonView
         }
         .padding(24)
-        .background(Color.white)
+        .background(Color.white.opacity(0.86))
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay {
             RoundedRectangle(cornerRadius: 28)
@@ -357,5 +407,29 @@ private struct MemoryDetailView: View {
                 .clipShape(Capsule())
                 .padding(14)
         }
+    }
+}
+
+private let recordMint = Color(red: 69 / 255, green: 166 / 255, blue: 145 / 255)
+private let recordYellow = Color(red: 244 / 255, green: 185 / 255, blue: 70 / 255)
+private let recordText = Color(red: 40 / 255, green: 68 / 255, blue: 66 / 255)
+private let recordBackground = Color(red: 253 / 255, green: 251 / 255, blue: 245 / 255)
+
+private func formattedDuration(_ seconds: Double) -> String {
+    let totalSeconds = max(0, Int(seconds.rounded(.down)))
+    let minutes = totalSeconds / 60
+    let seconds = totalSeconds % 60
+    return String(format: "%02d:%02d", minutes, seconds)
+}
+
+private func scoreLine(_ title: String, _ score: Int, color: Color) -> some View {
+    HStack {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(color)
+        Spacer()
+        Text("\(score)")
+            .font(.title3.weight(.bold))
+            .foregroundStyle(color)
     }
 }

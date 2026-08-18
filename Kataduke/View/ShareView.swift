@@ -50,9 +50,11 @@ struct ShareView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
             .navigationTitle("Share")
+            .background(shareBackground)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -116,7 +118,7 @@ struct ShareView: View {
         do {
             records = try await service.fetchSharedRecords()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = readableShareErrorMessage(from: error)
         }
     }
 
@@ -126,8 +128,16 @@ struct ShareView: View {
             try await service.toggleLike(recordID: record.id, isLikedByCurrentUser: isLiked)
             records = try await service.fetchSharedRecords()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = readableShareErrorMessage(from: error)
         }
+    }
+
+    private func readableShareErrorMessage(from error: Error) -> String {
+        let message = error.localizedDescription
+        if message.localizedCaseInsensitiveContains("permission") {
+            return "共有記録を読み込む権限がありません。FirebaseのFirestoreルールで sharedRecords の読み取り許可を確認してください。"
+        }
+        return message
     }
 }
 
@@ -348,10 +358,11 @@ private struct SharedRecordRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(record.ownerName)
-                    .font(.headline)
-                Text("掃除時間 \(String(format: "%.2f", record.elapsedTime)) 秒")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(shareText)
+                Text("掃除時間 \(shareFormattedDuration(record.elapsedTime))")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(shareMint)
                 Text(record.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -359,8 +370,20 @@ private struct SharedRecordRowView: View {
                     .font(.caption)
                     .foregroundStyle(record.isLikedByCurrentUser ? .red : .secondary)
             }
+            Spacer()
+            if let improvementScore = record.improvementScore {
+                Text("\(improvementScore > 0 ? "+" : "")\(improvementScore)")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(shareYellow)
+            }
         }
-        .padding(.vertical, 6)
+        .padding(12)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(shareMint.opacity(0.18), lineWidth: 1))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -424,8 +447,9 @@ private struct SharedRecordDetailView: View {
                     }
                 }
 
-                Text(String(format: "%.2f 秒", record.elapsedTime))
-                    .font(.system(size: 46, weight: .bold))
+                Text(shareFormattedDuration(record.elapsedTime))
+                    .font(.system(size: 56, weight: .bold, design: .rounded))
+                    .foregroundStyle(shareMint)
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 HStack(alignment: .top, spacing: 14) {
@@ -433,8 +457,10 @@ private struct SharedRecordDetailView: View {
                     sharedImageView(title: "After", url: record.afterImageURL)
                 }
 
-                scoreSection
-                playedTracksSection
+                HStack(alignment: .top, spacing: 14) {
+                    playedTracksSection
+                    scoreSection
+                }
 
                 Button {
                     Task {
@@ -457,6 +483,7 @@ private struct SharedRecordDetailView: View {
             }
             .padding()
         }
+        .background(shareBackground)
         .navigationTitle("共有記録")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -482,16 +509,20 @@ private struct SharedRecordDetailView: View {
 
     private var scoreSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Gemini評価")
+            Label("Score", systemImage: "sparkles")
                 .font(.headline)
+                .foregroundStyle(shareMint)
             if let beforeScore = record.beforeTidinessScore {
-                Text("片付け前: \(beforeScore) 点")
+                shareScoreLine("Before", beforeScore, color: .secondary)
             }
             if let afterScore = record.afterTidinessScore {
-                Text("片付け後: \(afterScore) 点")
+                shareScoreLine("After", afterScore, color: shareMint)
             }
             if let improvementScore = record.improvementScore {
-                Text("改善度: \(improvementScore > 0 ? "+" : "")\(improvementScore)点")
+                Text("\(improvementScore > 0 ? "+" : "")\(improvementScore)")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(shareYellow)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             if record.beforeTidinessScore == nil,
                record.afterTidinessScore == nil,
@@ -501,37 +532,51 @@ private struct SharedRecordDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(height: 190, alignment: .topLeading)
+        .padding(14)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(shareMint.opacity(0.22), lineWidth: 1))
     }
 
     private var playedTracksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("再生した曲")
+            Label("Played songs", systemImage: "music.note")
                 .font(.headline)
+                .foregroundStyle(shareMint)
 
             if record.playedTracks.isEmpty {
                 Text("曲がありません")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(record.playedTracks) { track in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.title)
-                            .fontWeight(.semibold)
-                        if !track.artistName.isEmpty {
-                            Text(track.artistName)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Image(systemName: "music.note")
+                            .foregroundStyle(shareMint)
+                            .frame(width: 30, height: 30)
+                            .background(shareMint.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            if !track.artistName.isEmpty {
+                                Text(track.artistName)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(height: 190, alignment: .topLeading)
+        .padding(14)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(shareMint.opacity(0.22), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -549,12 +594,12 @@ private struct SharedRecordDetailView: View {
                     ProgressView()
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(height: 190)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
             } else {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.15))
-                    .frame(height: 180)
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(Color.white.opacity(0.82))
+                    .frame(height: 190)
                     .overlay {
                         Image(systemName: "photo")
                             .foregroundStyle(.secondary)
@@ -577,6 +622,30 @@ private struct LikeButtonStyle: ButtonStyle {
             .background(isLiked ? Color.red : Color.red.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+private let shareMint = Color(red: 69 / 255, green: 166 / 255, blue: 145 / 255)
+private let shareYellow = Color(red: 244 / 255, green: 185 / 255, blue: 70 / 255)
+private let shareText = Color(red: 40 / 255, green: 68 / 255, blue: 66 / 255)
+private let shareBackground = Color(red: 253 / 255, green: 251 / 255, blue: 245 / 255)
+
+private func shareFormattedDuration(_ seconds: Double) -> String {
+    let totalSeconds = max(0, Int(seconds.rounded(.down)))
+    let minutes = totalSeconds / 60
+    let seconds = totalSeconds % 60
+    return String(format: "%02d:%02d", minutes, seconds)
+}
+
+private func shareScoreLine(_ title: String, _ score: Int, color: Color) -> some View {
+    HStack {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(color)
+        Spacer()
+        Text("\(score)")
+            .font(.title3.weight(.bold))
+            .foregroundStyle(color)
     }
 }
 

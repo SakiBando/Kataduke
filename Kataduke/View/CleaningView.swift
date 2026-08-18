@@ -70,6 +70,8 @@ struct CleaningView: View{
                     let isCompactHeight = geometry.size.height < 780
 
                     VStack(spacing: 0) {
+                    Spacer(minLength: isCompactHeight ? 18 : 8)
+
                     if isCompactHeight == false {
                         headerBar
                             .scaleEffect(compactness)
@@ -98,9 +100,6 @@ struct CleaningView: View{
                                 .minimumScaleFactor(0.72)
                         }
 
-                        playlistChip
-                            .scaleEffect(compactness)
-                            .padding(.top, isCompactHeight ? 0 : 4)
                     }
                     .padding(.horizontal, 30)
                     .padding(.top, isCompactHeight ? 0 : 10)
@@ -112,16 +111,12 @@ struct CleaningView: View{
                         .scaleEffect(compactness)
                         .padding(.top, isCompactHeight ? 14 : 22)
 
-                    volumeControl
-                        .scaleEffect(compactness)
-                        .padding(.top, isCompactHeight ? 10 : 20)
-                        .padding(.horizontal, 46)
-
-                    Spacer(minLength: isCompactHeight ? 8 : 16)
+                    Spacer(minLength: isCompactHeight ? 10 : 16)
 
                     actionButtons
                         .scaleEffect(compactness)
-                        .padding(.horizontal, 28)
+                        .frame(maxWidth: 560)
+                        .padding(.horizontal, isCompactHeight ? 52 : 64)
                         .padding(.bottom, isCompactHeight ? 10 : 20)
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -180,7 +175,7 @@ struct CleaningView: View{
                 )
                 .shadow(color: cleaningMint.opacity(0.18), radius: 18, x: 0, y: 12)
 
-            VStack(spacing: 12) {
+            VStack(spacing: size < 240 ? 8 : 12) {
                 appIconMotif
                     .frame(width: motifWidth, height: motifHeight)
 
@@ -228,22 +223,6 @@ struct CleaningView: View{
                 .shadow(color: cleaningMint.opacity(0.16), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
-    }
-
-    private var playlistChip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "leaf.fill")
-            Text(cleaningModeName)
-        }
-        .font(.system(size: 17, weight: .semibold))
-        .foregroundStyle(cleaningMint)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 9)
-        .background(
-            Capsule()
-                .fill(cleaningMint.opacity(0.08))
-                .overlay(Capsule().stroke(cleaningMint.opacity(0.25), lineWidth: 1.5))
-        )
     }
 
     private var playbackControls: some View {
@@ -325,9 +304,9 @@ struct CleaningView: View{
                 .offset(y: 8)
 
             Image(systemName: "music.note")
-                .font(.system(size: 42, weight: .bold))
+                .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(.white.opacity(0.95))
-                .offset(x: 10, y: -24)
+                .offset(x: 4, y: -34)
 
             Image(systemName: "leaf.fill")
                 .font(.system(size: 36, weight: .semibold))
@@ -347,12 +326,6 @@ struct CleaningView: View{
     private var decorativeBackground: some View {
         ZStack {
             Color.clear
-
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 34))
-                .foregroundStyle(cleaningMint.opacity(0.45))
-                .rotationEffect(.degrees(24))
-                .offset(x: 118, y: -282)
 
             Image(systemName: "leaf.fill")
                 .font(.system(size: 54))
@@ -375,22 +348,13 @@ struct CleaningView: View{
     }
 
     private func cleaningLayoutScale(for height: CGFloat) -> CGFloat {
-        min(1, max(0.76, height / 860))
+        min(1.05, max(0.88, height / 820))
     }
 
     private func cleaningRingSize(for size: CGSize) -> CGFloat {
-        let heightBasedSize = size.height * 0.31
-        let widthBasedSize = size.width * 0.66
-        return min(252, max(206, min(heightBasedSize, widthBasedSize)))
-    }
-
-    private var cleaningModeName: String {
-        switch playbackSource {
-        case .appleMusic:
-            return "Relaxing"
-        case .local:
-            return "Relaxing"
-        }
+        let heightBasedSize = size.height * 0.36
+        let widthBasedSize = size.width * 0.74
+        return min(280, max(232, min(heightBasedSize, widthBasedSize)))
     }
 
     private var cleaningMint: Color {
