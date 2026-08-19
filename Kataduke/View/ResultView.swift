@@ -24,6 +24,7 @@ struct ResultView: View {
     @State private var isSaving = false
     @State private var evaluationError: String?
     @State private var saveError: String?
+    @State private var commentText = ""
     private let sharedRecordService = SharedCleaningRecordService()
 
     
@@ -72,6 +73,8 @@ struct ResultView: View {
                             playedTracksSection
                             evaluationSection
                         }
+
+                        commentSection
 
                         VStack(spacing: 14) {
                             Button {
@@ -224,6 +227,35 @@ struct ResultView: View {
                 .foregroundStyle(color)
         }
     }
+
+    private var commentSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Comment", systemImage: "square.and.pencil")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(resultMint)
+
+            ZStack(alignment: .topLeading) {
+                if commentText.isEmpty {
+                    Text("この記録にメモを残す")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.75))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 8)
+                }
+
+                TextEditor(text: $commentText)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(red: 40 / 255, green: 68 / 255, blue: 66 / 255))
+                    .frame(minHeight: 82, maxHeight: 110)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+            }
+        }
+        .padding(14)
+        .background(resultCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(resultMint.opacity(0.28), lineWidth: 1))
+    }
     
     @ViewBuilder
     func resultImageView(image: UIImage?, title: String) -> some View {
@@ -265,6 +297,7 @@ struct ResultView: View {
         let beforeImageData = beforeImage?.jpegData(compressionQuality: 0.8)
         let afterImageData = afterImage?.jpegData(compressionQuality: 0.8)
         let playedTracksData = try? JSONEncoder().encode(playedTracks)
+        let trimmedComment = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
         var sharedRecordID: String?
 
         if shouldShare {
@@ -292,7 +325,8 @@ struct ResultView: View {
             beforeTidinessScore: evaluation?.clampedBeforeScore,
             afterTidinessScore: evaluation?.clampedAfterScore,
             improvementScore: evaluation?.improvementScore,
-            sharedRecordID: sharedRecordID
+            sharedRecordID: sharedRecordID,
+            comment: trimmedComment.isEmpty ? nil : trimmedComment
         )
         context.insert(record)
         

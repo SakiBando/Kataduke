@@ -135,7 +135,7 @@ struct ShareView: View {
     private func readableShareErrorMessage(from error: Error) -> String {
         let message = error.localizedDescription
         if message.localizedCaseInsensitiveContains("permission") {
-            return "共有記録を読み込む権限がありません。FirebaseのFirestoreルールで sharedRecords の読み取り許可を確認してください。"
+            return "共有記録を読み込む権限がありません。追加した firestore.rules を Firebase に反映してください。"
         }
         return message
     }

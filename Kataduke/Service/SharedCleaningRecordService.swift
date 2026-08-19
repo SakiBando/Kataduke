@@ -173,6 +173,35 @@ struct SharedCleaningRecordService {
         try? await storageReference.child("after.jpg").delete()
     }
 
+    func fetchSharedLikeCount(recordID: String) async throws -> Int {
+        guard let currentUserID = Auth.auth().currentUser?.uid else {
+            throw SharedCleaningRecordError.notLoggedIn
+        }
+        guard !recordID.isEmpty else { return 0 }
+
+        let friendsSnapshot = try await database
+            .collection("users")
+            .document(currentUserID)
+            .collection("friends")
+            .getDocuments()
+        let friendIDs = friendsSnapshot.documents.map {
+            $0.data()["friendUserID"] as? String ?? $0.documentID
+        }
+
+        var totalLikeCount = 0
+        for friendID in friendIDs {
+            let likesSnapshot = try? await database
+                .collection("users")
+                .document(friendID)
+                .collection("sharedRecords")
+                .document(recordID)
+                .collection("likes")
+                .getDocuments()
+            totalLikeCount += likesSnapshot?.documents.count ?? 0
+        }
+        return totalLikeCount
+    }
+
     func toggleLike(recordID: String, isLikedByCurrentUser: Bool) async throws {
         guard let currentUserID = Auth.auth().currentUser?.uid else {
             throw SharedCleaningRecordError.notLoggedIn

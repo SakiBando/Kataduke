@@ -162,6 +162,9 @@ private struct MemoryRowView: View {
 private struct MemoryDetailView: View {
     let memory: SelectedImage
     @State private var sliderProgress: CGFloat = 0.5
+    @State private var sharedLikeCount: Int?
+    @State private var likeCountErrorMessage: String?
+    private let sharedRecordService = SharedCleaningRecordService()
     
     var body: some View {
         ScrollView {
@@ -180,6 +183,14 @@ private struct MemoryDetailView: View {
                     playedTracksSection
                     scoreSummarySection
                 }
+
+                if hasComment {
+                    commentSection
+                }
+
+                if memory.sharedRecordID != nil {
+                    sharedLikeCountSection
+                }
                 
                 comparisonCard
                 
@@ -192,6 +203,79 @@ private struct MemoryDetailView: View {
         .background(recordBackground)
         .navigationTitle("記録の詳細")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await loadSharedLikeCountIfNeeded()
+        }
+    }
+
+    private var hasComment: Bool {
+        guard let comment = memory.comment else { return false }
+        return comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private var commentSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Comment", systemImage: "square.and.pencil")
+                .font(.headline)
+                .foregroundStyle(recordMint)
+
+            Text(memory.comment ?? "")
+                .font(.body)
+                .foregroundStyle(recordText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(recordMint.opacity(0.22), lineWidth: 1))
+    }
+
+    private var sharedLikeCountSection: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(recordYellow)
+                .frame(width: 44, height: 44)
+                .background(recordYellow.opacity(0.14))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("友達からのいいね")
+                    .font(.headline)
+                    .foregroundStyle(recordText)
+
+                if let sharedLikeCount {
+                    Text("\(sharedLikeCount) 件")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(recordMint)
+                } else if let likeCountErrorMessage {
+                    Text(likeCountErrorMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("読み込み中...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(recordMint.opacity(0.22), lineWidth: 1))
+    }
+
+    @MainActor
+    private func loadSharedLikeCountIfNeeded() async {
+        guard let sharedRecordID = memory.sharedRecordID else { return }
+        do {
+            sharedLikeCount = try await sharedRecordService.fetchSharedLikeCount(recordID: sharedRecordID)
+            likeCountErrorMessage = nil
+        } catch {
+            likeCountErrorMessage = "いいね数を読み込めませんでした"
+        }
     }
     
     @ViewBuilder

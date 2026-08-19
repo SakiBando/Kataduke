@@ -9,6 +9,7 @@ import SwiftUI
 import MusicKit
 import SwiftData
 import MediaPlayer
+import UIKit
 
 struct CleaningView: View{
     
@@ -21,8 +22,11 @@ struct CleaningView: View{
     var onSaveDraftFlow: () -> Void
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @State private var timer: Timer?
     @State private var secondsElapsed: Double
+    @State private var elapsedBeforeCurrentRun: Double
+    @State private var runningStartedAt: Date?
     @State private var isRunning = false
     @State private var isSongPrepared: Bool
     @State private var isShowAlert = false
@@ -51,6 +55,7 @@ struct CleaningView: View{
         self.onSaveDraftFlow = onSaveDraftFlow
         self.onFinishFlow = onFinishFlow
         self._secondsElapsed = State(initialValue: initialSecondsElapsed)
+        self._elapsedBeforeCurrentRun = State(initialValue: initialSecondsElapsed)
         self._isSongPrepared = State(initialValue: isResumeMode)
     }
     
@@ -127,6 +132,7 @@ struct CleaningView: View{
         }
             .onAppear {
                 print("[CleaningView] onAppear. before image exists: \(beforeImage != nil)")
+                UIApplication.shared.isIdleTimerDisabled = true
                 if isResumeMode {
                     isSongPrepared = true
                 }
@@ -134,6 +140,12 @@ struct CleaningView: View{
             .onDisappear {
                 timer?.invalidate()
                 timer = nil
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    updateElapsedTimeFromClock()
+                }
             }
         }
     
@@ -279,6 +291,7 @@ struct CleaningView: View{
             .alert("仮保存しますか", isPresented: $isShowAlert) {
                 Button("戻る"){}
                 Button("仮保存する"){
+                    updateElapsedTimeFromClock()
                     saveDraft()
                     pause()
                     onSaveDraftFlow()
@@ -286,6 +299,7 @@ struct CleaningView: View{
             }
 
             Button {
+                updateElapsedTimeFromClock()
                 let completedSecondsElapsed = secondsElapsed
                 stop(resetElapsed: false)
                 onCompleteCleaning(completedSecondsElapsed, playedTracks)
@@ -380,9 +394,11 @@ struct CleaningView: View{
     func start() {
         print("[CleaningView] start timer")
         timer?.invalidate()
+        elapsedBeforeCurrentRun = secondsElapsed
+        runningStartedAt = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
-                secondsElapsed += 1
+                updateElapsedTimeFromClock()
                 refreshCurrentTrackIfNeeded()
             }
         }
@@ -392,7 +408,11 @@ struct CleaningView: View{
     
     func pause() {
         print("[CleaningView] pause timer at \(secondsElapsed)")
+        updateElapsedTimeFromClock()
         timer?.invalidate()
+        timer = nil
+        elapsedBeforeCurrentRun = secondsElapsed
+        runningStartedAt = nil
         isRunning = false
         pauseSelectedSong()
     }
@@ -400,12 +420,22 @@ struct CleaningView: View{
     func stop(resetElapsed: Bool = true) {
         print("[CleaningView] stop timer at \(secondsElapsed)")
         timer?.invalidate()
+        timer = nil
+        updateElapsedTimeFromClock()
+        elapsedBeforeCurrentRun = resetElapsed ? 0 : secondsElapsed
+        runningStartedAt = nil
         isRunning = false
         stopSelectedSong()
         isSongPrepared = false
         if resetElapsed {
             secondsElapsed = 0.0
         }
+    }
+
+    @MainActor
+    private func updateElapsedTimeFromClock() {
+        guard let runningStartedAt else { return }
+        secondsElapsed = elapsedBeforeCurrentRun + Date().timeIntervalSince(runningStartedAt)
     }
     
     @MainActor
