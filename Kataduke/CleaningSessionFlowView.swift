@@ -74,6 +74,7 @@ struct CleaningSessionFlowView: View {
             initialSecondsElapsed: initialSecondsElapsed,
             isResumeMode: isResumeMode,
             onCompleteCleaning: completeCleaning,
+            onBackToBeforePhoto: backToBeforePhoto,
             onSaveDraftFlow: saveDraftAndDismiss
         ) {
             onFinishFlow()
@@ -125,6 +126,14 @@ struct CleaningSessionFlowView: View {
         self.playedTracks = playedTracks
         afterImage = nil
         phase = .afterCamera
+    }
+
+    private func backToBeforePhoto() {
+        beforeImage = nil
+        afterImage = nil
+        playedTracks = []
+        resultSecondsElapsed = initialSecondsElapsed
+        phase = .beforeCamera
     }
 
     private func saveDraftAndDismiss() {

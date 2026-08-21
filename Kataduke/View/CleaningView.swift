@@ -19,6 +19,7 @@ struct CleaningView: View{
     let initialSecondsElapsed: Double
     let isResumeMode: Bool
     var onCompleteCleaning: (Double, [PlayedTrackInfo]) -> Void
+    var onBackToBeforePhoto: () -> Void
     var onSaveDraftFlow: () -> Void
     var onFinishFlow: () -> Void
     @Environment(\.modelContext) private var context
@@ -43,6 +44,7 @@ struct CleaningView: View{
         initialSecondsElapsed: Double = 0,
         isResumeMode: Bool = false,
         onCompleteCleaning: @escaping (Double, [PlayedTrackInfo]) -> Void,
+        onBackToBeforePhoto: @escaping () -> Void = {},
         onSaveDraftFlow: @escaping () -> Void,
         onFinishFlow: @escaping () -> Void
     ) {
@@ -52,6 +54,7 @@ struct CleaningView: View{
         self.initialSecondsElapsed = initialSecondsElapsed
         self.isResumeMode = isResumeMode
         self.onCompleteCleaning = onCompleteCleaning
+        self.onBackToBeforePhoto = onBackToBeforePhoto
         self.onSaveDraftFlow = onSaveDraftFlow
         self.onFinishFlow = onFinishFlow
         self._secondsElapsed = State(initialValue: initialSecondsElapsed)
@@ -77,12 +80,10 @@ struct CleaningView: View{
                     VStack(spacing: 0) {
                     Spacer(minLength: isCompactHeight ? 18 : 8)
 
-                    if isCompactHeight == false {
-                        headerBar
-                            .scaleEffect(compactness)
-                            .padding(.top, 8)
-                            .padding(.horizontal, 22)
-                    }
+                    headerBar
+                        .scaleEffect(compactness)
+                        .padding(.top, isCompactHeight ? 2 : 8)
+                        .padding(.horizontal, 22)
 
                     VStack(spacing: isCompactHeight ? 2 : 6) {
                         Text("Cleaning")
@@ -215,9 +216,9 @@ struct CleaningView: View{
         HStack {
             Button {
                 pause()
-                onFinishFlow()
+                onBackToBeforePhoto()
             } label: {
-                Image(systemName: "chevron.down")
+                Image(systemName: "chevron.left")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(cleaningMint)
                     .frame(width: 58, height: 58)

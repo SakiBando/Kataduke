@@ -16,6 +16,8 @@ struct HomeView: View {
     @State private var moodPlaybackSource: PlaybackSource?
     @State private var isShowingMoodCleaning = false
     @State private var subscriptionAlertMessage: String?
+    @State private var isShowingOpenAppleMusicAlert = false
+    @Environment(\.openURL) private var openURL
     
     var body: some View {
         NavigationStack {
@@ -164,7 +166,7 @@ struct HomeView: View {
 
                         moodCard(
                             title: "Uptempo",
-                            systemImage: "paintbrush.pointed.fill",
+                            systemImage: "broom.fill",
                             accentImage: "music.note",
                             imageColor: homeYellow,
                             backgroundColors: [
@@ -207,6 +209,14 @@ struct HomeView: View {
             } message: {
                 Text(subscriptionAlertMessage ?? "")
             }
+            .alert("Apple Musicを開きますか？", isPresented: $isShowingOpenAppleMusicAlert) {
+                Button("キャンセル", role: .cancel) {}
+                Button("開く") {
+                    openAppleMusicApp()
+                }
+            } message: {
+                Text("スマホに入っているApple Musicアプリへ移動します。")
+            }
         }
     }
 
@@ -224,12 +234,17 @@ struct HomeView: View {
 
             Spacer()
 
-            Image(systemName: "music.note")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(homeMint)
-                .frame(width: 56, height: 56)
-                .background(Circle().fill(.white.opacity(0.86)))
-                .shadow(color: homeMint.opacity(0.16), radius: 12, x: 0, y: 8)
+            Button {
+                isShowingOpenAppleMusicAlert = true
+            } label: {
+                Image(systemName: "music.note")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(homeMint)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(.white.opacity(0.86)))
+                    .shadow(color: homeMint.opacity(0.16), radius: 12, x: 0, y: 8)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -436,6 +451,17 @@ struct HomeView: View {
         }
         moodPlaybackSource = .appleMusic(tracks)
         isShowingMoodCleaning = true
+    }
+
+    private func openAppleMusicApp() {
+        guard let musicURL = URL(string: "music://") else { return }
+        openURL(musicURL) { accepted in
+            guard accepted == false,
+                  let webURL = URL(string: "https://music.apple.com") else {
+                return
+            }
+            openURL(webURL)
+        }
     }
 
     private func resumePlaybackSource(
