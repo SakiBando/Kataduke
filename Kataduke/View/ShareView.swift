@@ -53,7 +53,7 @@ struct ShareView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .navigationTitle("Share")
+            .navigationTitle("友達の記録")
             .background(shareBackground)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -141,6 +141,48 @@ struct ShareView: View {
     }
 }
 
+private struct ShareSheetContainer<Content: View>: View {
+    let title: String
+    let systemImage: String
+    @ViewBuilder var content: Content
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(shareMint)
+                            .frame(width: 58, height: 58)
+                            .background(Circle().fill(Color.white.opacity(0.86)))
+                            .shadow(color: shareMint.opacity(0.14), radius: 10, x: 0, y: 6)
+
+                        Text(title)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(shareText)
+                    }
+
+                    Spacer()
+
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(shareMint)
+                }
+
+                content
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 22)
+            .padding(.bottom, 36)
+        }
+        .background(shareBackground.ignoresSafeArea())
+    }
+}
+
 private struct ShareMyCodeView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var profileViewModel = UserProfileViewModel()
@@ -148,40 +190,38 @@ private struct ShareMyCodeView: View {
     private let qrFilter = CIFilter.qrCodeGenerator()
 
     var body: some View {
-        Form {
-            Section("マイコード") {
-                VStack(spacing: 14) {
-                    if profileViewModel.accountCode.isEmpty {
-                        ProgressView()
-                    } else {
-                        qrCodeImage(for: profileViewModel.accountCode)
-                            .interpolation(.none)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 190, height: 190)
+        ShareSheetContainer(title: "マイコード", systemImage: "qrcode") {
+            VStack(spacing: 14) {
+                if profileViewModel.accountCode.isEmpty {
+                    ProgressView()
+                        .tint(shareMint)
+                        .frame(height: 220)
+                } else {
+                    qrCodeImage(for: profileViewModel.accountCode)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 190, height: 190)
+                        .padding(18)
+                        .background(Color.white.opacity(0.88))
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
 
-                        Text(profileViewModel.accountCode)
-                            .font(.system(size: 30, weight: .bold, design: .monospaced))
-                            .textSelection(.enabled)
+                    Text(profileViewModel.accountCode)
+                        .font(.system(size: 30, weight: .bold, design: .monospaced))
+                        .foregroundStyle(shareText)
+                        .textSelection(.enabled)
 
-                        Text("このQRコードを友達に読み取ってもらうと、友達登録できます。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-            }
-        }
-        .navigationTitle("マイコード")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("閉じる") {
-                    dismiss()
+                    Text("このQRコードを友達に読み取ってもらうと、友達登録できます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(22)
+            .background(Color.white.opacity(0.82))
+            .clipShape(RoundedRectangle(cornerRadius: 26))
+            .overlay(RoundedRectangle(cornerRadius: 26).stroke(shareMint.opacity(0.20), lineWidth: 1))
         }
         .task {
             await profileViewModel.load()
@@ -209,12 +249,16 @@ private struct ShareFriendRegistrationView: View {
     @FocusState private var isFriendCodeFocused: Bool
 
     var body: some View {
-        Form {
-            Section("友達登録") {
+        ShareSheetContainer(title: "友達登録", systemImage: "person.badge.plus") {
+            VStack(alignment: .leading, spacing: 16) {
                 TextField("友達のアカウントコード", text: $profileViewModel.friendCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .focused($isFriendCodeFocused)
+                    .padding(14)
+                    .background(Color.white.opacity(0.86))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(shareMint.opacity(0.20), lineWidth: 1))
 
                 Button {
                     isFriendCodeFocused = false
@@ -223,9 +267,8 @@ private struct ShareFriendRegistrationView: View {
                     Label("QRコードを読み取る", systemImage: "qrcode.viewfinder")
                         .frame(maxWidth: .infinity)
                 }
-            }
+                .buttonStyle(ShareSoftButtonStyle())
 
-            Section {
                 Button {
                     isFriendCodeFocused = false
                     Task {
@@ -242,23 +285,17 @@ private struct ShareFriendRegistrationView: View {
                 }
                 .buttonStyle(SharePrimaryButtonStyle())
                 .disabled(profileViewModel.isAddingFriend || profileViewModel.friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
-            if let errorMessage = profileViewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
-        }
-        .navigationTitle("友達登録")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("閉じる") {
-                    dismiss()
+                if let errorMessage = profileViewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.red)
                 }
             }
+            .padding(18)
+            .background(Color.white.opacity(0.82))
+            .clipShape(RoundedRectangle(cornerRadius: 26))
+            .overlay(RoundedRectangle(cornerRadius: 26).stroke(shareMint.opacity(0.20), lineWidth: 1))
         }
         .fullScreenCover(isPresented: $isShowingQRScanner) {
             QRCodeScannerView { code in
@@ -287,39 +324,38 @@ private struct ShareFriendListView: View {
     @StateObject private var profileViewModel = UserProfileViewModel()
 
     var body: some View {
-        Group {
-            if profileViewModel.isLoading {
-                ProgressView()
-            } else {
-                List {
-                    if profileViewModel.friends.isEmpty {
-                        Text("まだ友達がいません")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(profileViewModel.friends) { friend in
-                            HStack(spacing: 12) {
-                                friendIcon(url: friend.iconURL)
-                                Text(friend.name)
-                                    .font(.headline)
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
+        ShareSheetContainer(title: "友達一覧", systemImage: "person.2") {
+            VStack(spacing: 12) {
+                if profileViewModel.isLoading {
+                    ProgressView()
+                        .tint(shareMint)
+                        .frame(height: 120)
+                } else if profileViewModel.friends.isEmpty {
+                    Text("まだ友達がいません")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(24)
+                        .background(Color.white.opacity(0.82))
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                } else {
+                    ForEach(profileViewModel.friends) { friend in
+                        HStack(spacing: 12) {
+                            friendIcon(url: friend.iconURL)
+                            Text(friend.name)
+                                .font(.headline)
+                                .foregroundStyle(shareText)
+                            Spacer()
                         }
-                    }
-
-                    if let errorMessage = profileViewModel.errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
+                        .padding(14)
+                        .background(Color.white.opacity(0.82))
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(shareMint.opacity(0.18), lineWidth: 1))
                     }
                 }
-            }
-        }
-        .navigationTitle("友達一覧")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("閉じる") {
-                    dismiss()
+
+                if let errorMessage = profileViewModel.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
                 }
             }
         }
@@ -360,12 +396,15 @@ private struct SharedRecordRowView: View {
                 Text(record.ownerName)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(shareText)
-                Text("掃除時間 \(shareFormattedDuration(record.elapsedTime))")
-                    .font(.subheadline)
-                    .foregroundStyle(shareMint)
-                Text(record.createdAt.formatted(date: .abbreviated, time: .shortened))
+                Text(shareDateTimeText(record.createdAt))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Text("総時間 \(shareFormattedDuration(record.elapsedTime))")
+                    .font(.subheadline)
+                    .foregroundStyle(shareMint)
+                .lineLimit(1)
                 Label("\(record.likeCount)", systemImage: record.isLikedByCurrentUser ? "heart.fill" : "heart")
                     .font(.caption)
                     .foregroundStyle(record.isLikedByCurrentUser ? .red : .secondary)
@@ -410,11 +449,35 @@ private struct SharePrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color(red: 239 / 255, green: 132 / 255, blue: 69 / 255))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(
+                LinearGradient(
+                    colors: [
+                        shareMint,
+                        Color(red: 126 / 255, green: 190 / 255, blue: 174 / 255)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .shadow(color: shareMint.opacity(configuration.isPressed ? 0.12 : 0.26), radius: 10, x: 0, y: 6)
+            .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+private struct ShareSoftButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(shareMint)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color.white.opacity(0.86))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(shareMint.opacity(0.24), lineWidth: 1))
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
@@ -425,6 +488,7 @@ private struct SharedRecordDetailView: View {
     @State private var isUpdatingLike = false
     @State private var displayedLikeCount: Int
     @State private var displayedIsLiked: Bool
+    @State private var isShowingPlayedSongsSheet = false
 
     init(record: SharedCleaningRecord, onLikeTapped: @escaping (Bool) async -> Void) {
         self.record = record
@@ -434,23 +498,24 @@ private struct SharedRecordDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
                     profileIcon
                     VStack(alignment: .leading, spacing: 4) {
                         Text(record.ownerName)
-                            .font(.title3.weight(.bold))
-                        Text(record.createdAt.formatted(date: .complete, time: .shortened))
-                            .font(.subheadline)
+                            .font(.system(size: 20, weight: .bold))
+                        Text(shareDateTimeText(record.createdAt))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
 
-                Text(shareFormattedDuration(record.elapsedTime))
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .foregroundStyle(shareMint)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                Text("総時間 \(shareFormattedDuration(record.elapsedTime))")
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                .foregroundStyle(shareMint)
+                .lineLimit(1)
 
                 HStack(alignment: .top, spacing: 14) {
                     sharedImageView(title: "Before", url: record.beforeImageURL)
@@ -481,11 +546,18 @@ private struct SharedRecordDetailView: View {
                 .buttonStyle(LikeButtonStyle(isLiked: displayedIsLiked))
                 .disabled(isUpdatingLike)
             }
-            .padding()
+            .frame(width: min(geometry.size.width - 32, 390), alignment: .center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            }
         }
         .background(shareBackground)
         .navigationTitle("共有記録")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingPlayedSongsSheet) {
+            PlayedSongsSheet(tracks: record.playedTracks, tintColor: shareMint)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     @ViewBuilder
@@ -496,14 +568,14 @@ private struct SharedRecordDetailView: View {
             } placeholder: {
                 ProgressView()
             }
-            .frame(width: 54, height: 54)
+            .frame(width: 48, height: 48)
             .clipShape(Circle())
         } else {
             Image(systemName: "person.crop.circle.fill")
                 .resizable()
                 .scaledToFit()
                 .foregroundStyle(.secondary)
-                .frame(width: 54, height: 54)
+                .frame(width: 48, height: 48)
         }
     }
 
@@ -532,8 +604,8 @@ private struct SharedRecordDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 190, alignment: .topLeading)
-        .padding(14)
+        .frame(height: 220, alignment: .topLeading)
+        .padding(12)
         .background(Color.white.opacity(0.82))
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(shareMint.opacity(0.22), lineWidth: 1))
@@ -549,31 +621,26 @@ private struct SharedRecordDetailView: View {
                 Text("曲がありません")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(record.playedTracks) { track in
-                    HStack(spacing: 8) {
-                        Image(systemName: "music.note")
+                ForEach(record.playedTracks.prefix(3)) { track in
+                    PlayedSongRow(track: track, tintColor: shareMint)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if record.playedTracks.count > 3 {
+                    Button {
+                        isShowingPlayedSongsSheet = true
+                    } label: {
+                        Text("もっと見る")
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(shareMint)
-                            .frame(width: 30, height: 30)
-                            .background(shareMint.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                            if !track.artistName.isEmpty {
-                                Text(track.artistName)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 190, alignment: .topLeading)
-        .padding(14)
+        .frame(height: 220, alignment: .topLeading)
+        .padding(12)
         .background(Color.white.opacity(0.82))
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(shareMint.opacity(0.22), lineWidth: 1))
@@ -594,12 +661,12 @@ private struct SharedRecordDetailView: View {
                     ProgressView()
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 190)
+                .frame(height: 162)
                 .clipShape(RoundedRectangle(cornerRadius: 22))
             } else {
                 RoundedRectangle(cornerRadius: 22)
                     .fill(Color.white.opacity(0.82))
-                    .frame(height: 190)
+                    .frame(height: 162)
                     .overlay {
                         Image(systemName: "photo")
                             .foregroundStyle(.secondary)
@@ -635,6 +702,13 @@ private func shareFormattedDuration(_ seconds: Double) -> String {
     let minutes = totalSeconds / 60
     let seconds = totalSeconds % 60
     return String(format: "%02d:%02d", minutes, seconds)
+}
+
+private func shareDateTimeText(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "ja_JP")
+    formatter.dateFormat = "yyyy/MM/dd・HH:mm"
+    return formatter.string(from: date)
 }
 
 private func shareScoreLine(_ title: String, _ score: Int, color: Color) -> some View {

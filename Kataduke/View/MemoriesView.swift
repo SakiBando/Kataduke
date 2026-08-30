@@ -135,7 +135,7 @@ private struct MemoryRowView: View {
             .frame(width: 62, height: 62)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(memory.createdAt.formatted(date: .abbreviated, time: .shortened))
+                Text(recordDateTimeText(memory.createdAt))
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(recordText)
                 Text("総時間 \(formattedDuration(memory.elapsedTime))")
@@ -164,13 +164,14 @@ private struct MemoryDetailView: View {
     @State private var sliderProgress: CGFloat = 0.5
     @State private var sharedLikeCount: Int?
     @State private var likeCountErrorMessage: String?
+    @State private var isShowingPlayedSongsSheet = false
     private let sharedRecordService = SharedCleaningRecordService()
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(memory.createdAt.formatted(date: .complete, time: .shortened))
+                    Text(recordDateTimeText(memory.createdAt))
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundStyle(recordText)
@@ -205,6 +206,10 @@ private struct MemoryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadSharedLikeCountIfNeeded()
+        }
+        .sheet(isPresented: $isShowingPlayedSongsSheet) {
+            PlayedSongsSheet(tracks: memory.playedTracks, tintColor: recordMint)
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -299,7 +304,7 @@ private struct MemoryDetailView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 190, alignment: .topLeading)
+                .frame(height: 220, alignment: .topLeading)
                 .padding(14)
                 .background(Color.white.opacity(0.82))
                 .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -318,31 +323,25 @@ private struct MemoryDetailView: View {
                 Text("曲がありません")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(memory.playedTracks) { track in
-                    HStack(spacing: 8) {
-                        Image(systemName: "music.note")
-                            .foregroundStyle(recordMint)
-                            .frame(width: 30, height: 30)
-                            .background(recordMint.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                            if !track.artistName.isEmpty {
-                                Text(track.artistName)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
+                ForEach(memory.playedTracks.prefix(3)) { track in
+                    PlayedSongRow(track: track, tintColor: recordMint)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if memory.playedTracks.count > 3 {
+                    Button {
+                        isShowingPlayedSongsSheet = true
+                    } label: {
+                        Text("もっと見る")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(recordMint)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 190, alignment: .topLeading)
+        .frame(height: 220, alignment: .topLeading)
         .padding(14)
         .background(Color.white.opacity(0.82))
         .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -504,6 +503,13 @@ private func formattedDuration(_ seconds: Double) -> String {
     let minutes = totalSeconds / 60
     let seconds = totalSeconds % 60
     return String(format: "%02d:%02d", minutes, seconds)
+}
+
+private func recordDateTimeText(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "ja_JP")
+    formatter.dateFormat = "yyyy/MM/dd・HH:mm"
+    return formatter.string(from: date)
 }
 
 private func scoreLine(_ title: String, _ score: Int, color: Color) -> some View {

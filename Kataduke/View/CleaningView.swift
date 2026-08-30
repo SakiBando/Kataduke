@@ -227,13 +227,6 @@ struct CleaningView: View{
             }
 
             Spacer()
-
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 23, weight: .semibold))
-                .foregroundStyle(cleaningMint)
-                .frame(width: 58, height: 58)
-                .background(Circle().fill(.white.opacity(0.76)))
-                .shadow(color: cleaningMint.opacity(0.16), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
     }

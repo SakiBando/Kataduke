@@ -89,13 +89,6 @@ struct HomeView: View {
                             .foregroundStyle(homeMint)
 
                         Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundStyle(homeMint)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(.white.opacity(0.82)))
-                            .shadow(color: homeMint.opacity(0.14), radius: 9, x: 0, y: 6)
                     }
                     .padding(.top, 18)
 
@@ -155,6 +148,7 @@ struct HomeView: View {
                         moodCard(
                             title: "Relaxing",
                             systemImage: "chair.lounge.fill",
+                            customImage: nil,
                             accentImage: "music.note",
                             imageColor: homeMint,
                             backgroundColors: [
@@ -166,7 +160,8 @@ struct HomeView: View {
 
                         moodCard(
                             title: "Uptempo",
-                            systemImage: "broom.fill",
+                            systemImage: "",
+                            customImage: AnyView(uptempoSFSymbolIllustration(color: homeYellow)),
                             accentImage: "music.note",
                             imageColor: homeYellow,
                             backgroundColors: [
@@ -222,15 +217,10 @@ struct HomeView: View {
 
     private var homeHeader: some View {
         HStack(alignment: .center) {
-            Text("Kataduke")
+            Text("TidyTune")
                 .font(.system(size: 38, weight: .bold, design: .rounded))
                 .foregroundStyle(homeMint)
                 .shadow(color: .white.opacity(0.9), radius: 1, x: 0, y: 1)
-
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(homeMint)
-                .offset(x: -3, y: -15)
 
             Spacer()
 
@@ -366,6 +356,7 @@ struct HomeView: View {
     private func moodCard(
         title: String,
         systemImage: String,
+        customImage: AnyView?,
         accentImage: String,
         imageColor: Color,
         backgroundColors: [Color],
@@ -378,10 +369,16 @@ struct HomeView: View {
         } label: {
             VStack(spacing: 22) {
                 ZStack {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 68, weight: .regular))
-                        .foregroundStyle(imageColor.opacity(0.92))
-                        .offset(y: 8)
+                    if let customImage {
+                        customImage
+                            .frame(width: 88, height: 88)
+                            .offset(y: 8)
+                    } else {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 68, weight: .regular))
+                            .foregroundStyle(imageColor.opacity(0.92))
+                            .offset(y: 8)
+                    }
 
                     Image(systemName: accentImage)
                         .font(.system(size: 28, weight: .bold))
@@ -420,6 +417,26 @@ struct HomeView: View {
         }
         .disabled(viewModel.isLoadingMoodPlaylist)
         .buttonStyle(.plain)
+    }
+
+    private func uptempoSFSymbolIllustration(color: Color) -> some View {
+        ZStack {
+            Image(systemName: "paintbrush.pointed.fill")
+                .font(.system(size: 72, weight: .regular))
+                .foregroundStyle(color.opacity(0.90))
+                .rotationEffect(.degrees(-34))
+                .offset(x: -22, y: -2)
+
+            Image(systemName: "archivebox.fill")
+                .font(.system(size: 48, weight: .regular))
+                .foregroundStyle(color.opacity(0.76))
+                .offset(x: 28, y: 26)
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(color.opacity(0.45))
+                .offset(x: 6, y: -18)
+        }
     }
 
     private var homeBackground: Color {

@@ -25,6 +25,8 @@ struct ResultView: View {
     @State private var evaluationError: String?
     @State private var saveError: String?
     @State private var commentText = ""
+    @State private var isShowingPlayedSongsSheet = false
+    @FocusState private var isCommentFocused: Bool
     private let sharedRecordService = SharedCleaningRecordService()
 
     
@@ -117,11 +119,21 @@ struct ResultView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 24)
                 }
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        isCommentFocused = false
+                    }
+                )
             }
             .background(resultBackground)
             .navigationBarBackButtonHidden(true)
             .task {
                 await evaluateCleanupIfNeeded()
+            }
+            .sheet(isPresented: $isShowingPlayedSongsSheet) {
+                PlayedSongsSheet(tracks: playedTracks, tintColor: resultMint)
+                    .presentationDetents([.medium, .large])
             }
         }
     }
@@ -138,32 +150,25 @@ struct ResultView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(playedTracks.prefix(2)) { track in
-                    HStack(spacing: 8) {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(resultMint)
-                            .frame(width: 34, height: 34)
-                            .background(resultMint.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(track.title)
-                                .font(.system(size: 12, weight: .semibold))
-                                .lineLimit(1)
-                            if !track.artistName.isEmpty {
-                                Text(track.artistName)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
+                ForEach(playedTracks.prefix(3)) { track in
+                    PlayedSongRow(track: track, tintColor: resultMint)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if playedTracks.count > 3 {
+                    Button {
+                        isShowingPlayedSongsSheet = true
+                    } label: {
+                        Text("もっと見る")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(resultMint)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 196, alignment: .topLeading)
+        .frame(height: 220, alignment: .topLeading)
         .padding(12)
         .background(resultCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -209,7 +214,7 @@ struct ResultView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 196, alignment: .topLeading)
+            .frame(height: 220, alignment: .topLeading)
             .padding(12)
             .background(resultCardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -249,6 +254,7 @@ struct ResultView: View {
                     .frame(minHeight: 82, maxHeight: 110)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
+                    .focused($isCommentFocused)
             }
         }
         .padding(14)
